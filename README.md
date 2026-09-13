@@ -35,11 +35,13 @@ Tambahkan variabel berikut pada `.env.local` untuk pengembangan dan pada Vercel 
 DATABASE_URL=postgresql://...
 NEON_AUTH_BASE_URL=https://ep-tiny-hat-b3imoxg4.neonauth.c-4.ap-southeast-1.aws.neon.tech/bimbingai/auth
 NEON_AUTH_COOKIE_SECRET=rahasia-acak-minimal-32-karakter
+ADMIN_EMAIL=email-pemilik-aplikasi
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 AI_API_KEY=
 ```
 
 Untuk produksi, ubah `NEXT_PUBLIC_SITE_URL` menjadi URL aplikasi Vercel tanpa garis miring di belakang.
+`ADMIN_EMAIL` adalah satu-satunya akun yang otomatis menerima peran Administrator saat login pertama.
 
 ## Struktur penting
 
