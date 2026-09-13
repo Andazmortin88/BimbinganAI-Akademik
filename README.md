@@ -60,21 +60,21 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Buka `http://localhost:3000`. Dashboard contoh tersedia di `/dashboard?demo=1`.
+Buka `http://localhost:3000`, lalu daftar atau masuk menggunakan email dan kata sandi.
 
-## Google OAuth
+## Google OAuth (opsional)
 
-Google OAuth bersama dari Neon dapat dipakai untuk pengujian. Sebelum penggunaan institusional:
+Login utama menggunakan email dan kata sandi Neon Auth. Jika institusi ingin menambahkan Google:
 
 1. Buat OAuth Client bertipe **Web application** pada Google Cloud.
-2. Gunakan `NEON_AUTH_BASE_URL/callback/google` sebagai Authorized Redirect URI.
+2. Salin Authorized Redirect URI yang ditampilkan Neon Auth ke Google Cloud secara persis.
 3. Tambahkan domain Vercel sebagai trusted domain di Neon Auth.
 4. Masukkan Client ID dan Client Secret Google pada konfigurasi Neon Auth.
 5. Publikasikan OAuth consent screen setelah pengujian selesai.
 
 ## Alur registrasi
 
-1. Pengguna masuk dengan Google.
+1. Pengguna mendaftar atau masuk menggunakan email.
 2. Neon Auth membuat sesi aman.
 3. Pengguna baru diarahkan ke `/register`.
 4. Server menyimpan `profiles`, `student_profiles`, dan `research_projects` dalam satu transaksi.
@@ -97,4 +97,4 @@ pnpm typecheck
 pnpm build
 ```
 
-Uji login Google, registrasi, status pending, logout, pembatasan dokumen, penugasan pembimbing, dan endpoint review AI sebelum digunakan mahasiswa.
+Uji pendaftaran email, login, registrasi, status pending, logout, pembatasan dokumen, penugasan pembimbing, dan endpoint review AI sebelum digunakan mahasiswa.
