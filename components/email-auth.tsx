@@ -33,7 +33,9 @@ export default function EmailAuth() {
       router.push("/auth/callback?next=/dashboard");
       router.refresh();
     } catch {
-      setMessage("Layanan login sedang tidak dapat dihubungi. Silakan coba kembali.");
+      setMessage(mode === "signin"
+        ? "Email atau kata sandi tidak sesuai."
+        : "Pendaftaran gagal. Silakan periksa data lalu coba kembali.");
     } finally {
       setLoading(false);
     }
