@@ -40,7 +40,7 @@ export default function Home() {
               <article><MessageSquareText/><div><b>0</b><small>Bimbingan masuk</small></div></article>
             </div>
             <div className="preview-grid">
-              <section className="progress-card"><header><div><small>Progres bimbingan</small><b>Semester ini</b></div><span>74%</span></header><div className="bars"><i style={{height:"52%"}}/><i style={{height:"68%"}}/><i style={{height:"49%"}}/><i style={{height:"83%"}}/><i style={{height:"72%"}}/><i style={{height:"91%"}}/></div><div className="month"><span>Apr</span><span>Mei</span><span>Jun</span><span>Jul</span><span>Agu</span><span>Sep</span></div></section>
+              <section className="progress-card preview-empty"><small>Progres bimbingan</small><FileCheck2/><b>Menunggu data mahasiswa</b><p>Ringkasan progres dihitung langsung dari Neon.</p></section>
               <section className="activity preview-empty"><small>Aktivitas terbaru</small><FileCheck2/><b>Belum ada data</b><p>Aktivitas mahasiswa akan tampil setelah akun disetujui.</p></section>
             </div>
           </div>
