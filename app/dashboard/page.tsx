@@ -51,7 +51,7 @@ export default async function DashboardPage() {
 
   if(viewer.role==="STUDENT"){
     const student=students[0]; if(!student) redirect("/register");
-    return <StudentDashboard viewerName={viewer.fullName} period={period} student={student} consultations={consultations} documents={documents} appointments={appointments} titles={titles} logbook={logbook} progress={progress} notifications={notifications} bookingSlots={bookingSlots}/>;
+    return <StudentDashboard viewerName={viewer.fullName} period={period} currentTime={new Date().toISOString()} student={student} consultations={consultations} documents={documents} appointments={appointments} titles={titles} logbook={logbook} progress={progress} notifications={notifications} bookingSlots={bookingSlots}/>;
   }
   return <Dashboard viewerName={viewer.fullName} viewerRole={viewer.role} period={period} students={students} consultations={consultations} documents={documents} appointments={appointments} titles={titles} logbook={logbook} bookingSlots={bookingSlots} periods={periods} audits={audits} currentTime={new Date().toISOString()}/>;
 }
