@@ -54,9 +54,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Teks dokumen belum dapat dibaca. Gunakan berkas .docx yang berisi teks." }, { status: 422 });
   }
 
-  const apiKey = process.env.AI_API_KEY;
+  const settingRows = await sql`
+    SELECT enabled, model_name, custom_instructions, max_findings
+    FROM public.ai_review_settings WHERE id=1 LIMIT 1
+  `;
+  const settings = settingRows[0] as {
+    enabled: boolean; model_name: string; custom_instructions: string; max_findings: number;
+  } | undefined;
+  if (settings && !settings.enabled) {
+    return NextResponse.json({ error: "AI Review sedang dinonaktifkan pada pengaturan admin." }, { status: 503 });
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Layanan AI belum dikonfigurasi oleh admin." }, { status: 503 });
-  const model = "gpt-5-mini";
+  const model = settings?.model_name || "gpt-5-mini";
+  const maxFindings = Number(settings?.max_findings || 20);
   const reviewRows = await sql`
     INSERT INTO public.ai_reviews
       (document_version_id, review_mode, document_hash, model_name, rubric_version, status, requested_by)
@@ -68,7 +80,8 @@ export async function POST(request: Request) {
   const reviewId = (reviewRows[0] as { id: string }).id;
 
   const prompt = `Tinjau naskah akademik keperawatan berikut dalam bahasa Indonesia. Mode review: ${parsed.data.mode}.
-Fokus pada logika ilmiah, konsistensi metode, bahasa akademik, dan hal yang perlu diverifikasi. Jangan menyatakan plagiarisme dan jangan mengarang sumber. Berikan temuan yang konkret dan dapat ditindaklanjuti.\n\nNASKAH:\n${version.extracted_text}`;
+Instruksi pengelola: ${settings?.custom_instructions || "Utamakan logika ilmiah, konsistensi metode, bahasa akademik, etika penelitian, dan hal yang perlu diverifikasi. Jangan menyatakan plagiarisme dan jangan mengarang sumber."}
+Berikan maksimal ${maxFindings} temuan yang konkret dan dapat ditindaklanjuti.\n\nNASKAH:\n${version.extracted_text}`;
 
   try {
     const aiResponse = await fetch("https://api.openai.com/v1/responses", {
@@ -80,7 +93,7 @@ Fokus pada logika ilmiah, konsistensi metode, bahasa akademik, dan hal yang perl
         max_output_tokens: 8000,
         text: { format: { type: "json_schema", name: "academic_review", strict: true, schema: {
           type: "object", additionalProperties: false,
-          properties: { items: { type: "array", maxItems: 30, items: {
+          properties: { items: { type: "array", maxItems: maxFindings, items: {
             type: "object", additionalProperties: false,
             properties: {
               category: { type: "string" }, severity: { type: "string", enum: ["MAJOR", "MINOR", "LANGUAGE"] },
@@ -102,7 +115,7 @@ Fokus pada logika ilmiah, konsistensi metode, bahasa akademik, dan hal yang perl
     }
     const result = await aiResponse.json();
     const output = JSON.parse(extractOutputText(result));
-    const items = z.array(itemSchema).min(1).max(30).parse(output.items);
+    const items = z.array(itemSchema).min(1).max(maxFindings).parse(output.items);
     await sql.transaction((tx) => [
       tx`DELETE FROM public.ai_review_items WHERE ai_review_id=${reviewId}::uuid`,
       ...items.map(item => tx`INSERT INTO public.ai_review_items
@@ -119,4 +132,3 @@ Fokus pada logika ilmiah, konsistensi metode, bahasa akademik, dan hal yang perl
     return NextResponse.json({ error: "AI gagal memproses dokumen. Periksa konfigurasi API atau coba kembali." }, { status: 502 });
   }
 }
-

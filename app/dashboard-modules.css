@@ -91,9 +91,53 @@
 .help-grid svg{width:22px;color:#2876d7}
 .help-grid b{display:block;font-size:12px;margin:12px 0 6px}
 .help-grid p{font-size:10px;line-height:1.55;color:#748399;margin:0}
+.consultation-summary b,.consultation-summary small{display:block}
+.consultation-summary b{font-size:10px;color:#246bc4}
+.consultation-summary small{font-size:8px;color:#7f8ea2;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.decision-panel,.archive-panel,.ai-settings-panel{margin-top:16px}
+.decision-grid,.archive-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:18px}
+.decision-grid>article,.archive-grid>article{border:1px solid #e2eaf3;border-radius:14px;padding:16px;background:#fbfdff}
+.decision-student{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid #e8eef5}
+.decision-student>svg{width:22px;color:#2876d7}
+.decision-student span,.decision-student b,.decision-student small{display:block}
+.decision-student b{font-size:12px}
+.decision-student small{font-size:9px;color:#79889c;margin-top:3px}
+.exam-decision{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #edf1f5}
+.exam-decision span,.exam-decision b,.exam-decision small{display:block}
+.exam-decision b{font-size:10px}
+.exam-decision small{font-size:8px;color:#7b899d;margin-top:3px}
+.exam-decision>div{display:flex;gap:5px}
+.exam-decision button,.complete-button,.danger-button{border:1px solid #dbe5ef;border-radius:8px;background:#fff;padding:7px 9px;font-size:8px;font-weight:800;cursor:pointer;color:#52647b}
+.exam-decision button.selected.yes{background:#e4f8f0;border-color:#a9e6cf;color:#087b58}
+.exam-decision button.selected.no{background:#fff2e5;border-color:#f4cfaa;color:#ae5c13}
+.exam-decision button:disabled,.complete-button:disabled,.danger-button:disabled{opacity:.5;cursor:not-allowed}
+.complete-button,.danger-button{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:13px;width:100%;font-size:9px}
+.complete-button{background:#eaf4ff;color:#1967c5;border-color:#c9e1fb}
+.complete-button svg,.danger-button svg{width:14px}
+.archive-grid>article{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
+.archive-grid>article>svg{width:24px;color:#2876d7}
+.archive-grid b,.archive-grid small{display:block}
+.archive-grid b{font-size:12px}
+.archive-grid small{font-size:9px;color:#718198;margin-top:3px}
+.archive-grid p{font-size:9px;color:#7f8da0;line-height:1.5;margin:8px 0 0}
+.danger-button{width:auto;margin:0;background:#fff0f2;color:#bd334c;border-color:#ffd0d8}
+.ai-settings-panel>header>svg{width:20px;color:#2876d7}
+.ai-settings-panel form{padding:20px;display:flex;flex-direction:column;gap:14px}
+.ai-settings-panel form>label:not(.toggle-setting),.ai-setting-row label{display:flex;flex-direction:column;gap:7px;color:#40506a;font-size:11px;font-weight:750}
+.ai-settings-panel input,.ai-settings-panel textarea{border:1px solid #dce5ee;border-radius:10px;background:#fff;color:#26364f;padding:10px 11px;outline:0}
+.ai-settings-panel textarea{min-height:110px;resize:vertical;line-height:1.5}
+.ai-setting-row{display:grid;grid-template-columns:1fr 180px;gap:12px}
+.toggle-setting{display:flex;align-items:center;gap:10px;border:1px solid #dce8f4;background:#f4f9ff;border-radius:11px;padding:13px;cursor:pointer}
+.toggle-setting input{width:17px;height:17px}
+.toggle-setting span,.toggle-setting b,.toggle-setting small{display:block}
+.toggle-setting b{font-size:11px}
+.toggle-setting small{font-size:9px;color:#728198;margin-top:3px}
+.ai-settings-panel .button{align-self:flex-start;font-size:10px;min-height:40px}
+.ai-settings-panel .button svg{width:15px}
 
 @media(max-width:900px){.module-grid{grid-template-columns:1fr}
 .help-grid{grid-template-columns:repeat(2,1fr)}
+.decision-grid,.archive-grid{grid-template-columns:1fr}
 .student-actions{grid-template-columns:1fr}
 .student-hero{grid-template-columns:1fr}
 .student-hero aside{grid-template-columns:auto 1fr}
@@ -109,4 +153,8 @@
 .document-list>div span{flex-basis:70%}
 .profile-card dl>div{grid-template-columns:1fr;gap:5px}
 .help-grid{grid-template-columns:1fr}
+.ai-setting-row{grid-template-columns:1fr}
+.archive-grid>article{grid-template-columns:auto 1fr}
+.danger-button{grid-column:1/-1;width:100%}
+.exam-decision{align-items:flex-start;flex-direction:column}
 }

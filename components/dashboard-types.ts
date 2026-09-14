@@ -1,5 +1,6 @@
 export type DashboardStudent = {
   id: string;
+  projectId: string | null;
   name: string;
   nim: string;
   program: string;
@@ -7,6 +8,11 @@ export type DashboardStudent = {
   progress: number;
   status: string;
   updatedAt: string;
+  archivedAt: string | null;
+  consultationCount: number;
+  consultationTopics: string[];
+  proposalEligibility: string;
+  resultEligibility: string;
 };
 
 export type DashboardDocument = {
@@ -58,3 +64,10 @@ export type DashboardReview = {
   createdAt: string;
 };
 
+export type DashboardAiSettings = {
+  enabled: boolean;
+  modelName: string;
+  customInstructions: string;
+  maxFindings: number;
+  apiConfigured: boolean;
+};
