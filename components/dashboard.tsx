@@ -98,7 +98,7 @@ export default function Dashboard({ viewerName, viewerRole, period, students, co
     <aside className={mobile ? "sidebar open" : "sidebar"}>
       <div className="side-brand"><span><GraduationCap/></span><div>Bimbing<b>AI</b><small>{viewerRole === "ADMIN" ? "PANEL ADMIN" : "PANEL DOSEN"}</small></div><button aria-label="Tutup menu" onClick={() => setMobile(false)}><X/></button></div>
       <nav>{nav.map(([label, Icon]) => <button key={label} className={active === label ? "active" : ""} onClick={() => choose(label)}><Icon/>{label}{label === "Bimbingan Masuk" && incomingCount > 0 && <em>{incomingCount}</em>}</button>)}</nav>
-      <div className="side-bottom"><button><CircleHelp/> Pusat Bantuan</button><button><Settings/> Pengaturan</button><button onClick={logout}><LogOut/> Keluar</button><div className="profile-mini"><span>{initials}</span><p><b>{viewerName}</b><small>{viewerRole === "ADMIN" ? "Administrator" : "Dosen"}</small></p><ChevronDown/></div></div>
+      <div className="side-bottom"><button onClick={() => choose("Pusat Bantuan")}><CircleHelp/> Pusat Bantuan</button><button onClick={() => choose("Pengaturan")}><Settings/> Pengaturan</button><button onClick={logout}><LogOut/> Keluar</button><div className="profile-mini"><span>{initials}</span><p><b>{viewerName}</b><small>{viewerRole === "ADMIN" ? "Administrator" : "Dosen"}</small></p><ChevronDown/></div></div>
     </aside>
     {mobile && <button className="scrim" aria-label="Tutup menu" onClick={() => setMobile(false)}/>}
     <main className="dashboard-main">
@@ -123,6 +123,8 @@ export default function Dashboard({ viewerName, viewerRole, period, students, co
 
         {active === "Jadwal" && <section className="panel module-panel"><header><div><h2>Jadwal bimbingan</h2><p>Agenda yang telah dibuat</p></div></header><div className="record-list">{appointments.map(a=><div className="static-record" key={a.id}><CalendarDays/><span><b>{a.topic}</b><small>{a.studentName} · {formatDate(a.startsAt)} · {a.method}</small></span><i className={`status ${statusTone(a.decision)}`}>{statusLabel(a.decision)}</i></div>)}{appointments.length===0&&<Empty text="Belum ada jadwal bimbingan."/>}</div></section>}
         {active === "Arsip Bimbingan" && <section className="panel"><Empty text="Belum ada proyek atau bimbingan yang diarsipkan."/></section>}
+        {active === "Pusat Bantuan" && <section className="panel help-panel"><header><div><h2>Panduan singkat</h2><p>Cara menggunakan panel {viewerRole === "ADMIN" ? "administrator" : "dosen"}.</p></div></header><div className="help-grid"><article><UsersRound/><b>Kelola mahasiswa</b><p>Buka Mahasiswa untuk melihat status akun dan menyetujui pendaftar baru.</p></article><article><MessageSquareText/><b>Balas konsultasi</b><p>Buka Bimbingan Masuk, pilih percakapan, lalu tulis balasan.</p></article><article><FileText/><b>Periksa dokumen</b><p>Dokumen mahasiswa dapat dilihat dan diunduh dari menu Dokumen.</p></article>{viewerRole === "ADMIN" && <article><Bot/><b>Gunakan AI Review</b><p>Pilih berkas .docx, tentukan mode, lalu periksa kembali hasil AI sebelum digunakan.</p></article>}</div></section>}
+        {active === "Pengaturan" && <section className="panel profile-card"><header><div><h2>Pengaturan akun</h2><p>Identitas dan keamanan akun yang sedang digunakan.</p></div></header><dl><div><dt>Nama pengguna</dt><dd>{viewerName}</dd></div><div><dt>Peran</dt><dd>{viewerRole === "ADMIN" ? "Administrator" : "Dosen"}</dd></div><div><dt>Status</dt><dd><i className="status green">Aktif</i></dd></div><div><dt>Keamanan</dt><dd>Login dan sesi dikelola oleh Neon Auth.</dd></div></dl></section>}
       </div>
     </main>
     {toast && <div className="toast" role="status"><UserRoundCheck/><span>{toast}</span><button onClick={()=>setToast("")}><X/></button></div>}
@@ -130,4 +132,3 @@ export default function Dashboard({ viewerName, viewerRole, period, students, co
 }
 
 function Empty({text}:{text:string}) { return <div className="empty compact-empty"><span><Sparkles/></span><h2>{text}</h2><p>Informasi akan tampil otomatis setelah fitur digunakan.</p></div>; }
-

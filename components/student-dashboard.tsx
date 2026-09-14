@@ -69,7 +69,7 @@ export default function StudentDashboard({ viewerName, period, student, consulta
       <div className="side-brand"><span><GraduationCap/></span><div>Bimbing<b>AI</b><small>RUANG MAHASISWA</small></div><button onClick={()=>setMobile(false)}><X/></button></div>
       <nav>{nav.map(([label,Icon])=><button key={label} className={active===label?"active":""} onClick={()=>choose(label)}><Icon/>{label}{label==="Konsultasi"&&consultations.filter(c=>c.status==="IN_REVIEW").length>0&&<em>{consultations.filter(c=>c.status==="IN_REVIEW").length}</em>}</button>)}</nav>
       <div className="student-safety"><UserRoundCheck/><b>Akun mahasiswa aktif</b><small>Data Anda terpisah dan hanya terlihat oleh pengelola.</small></div>
-      <div className="side-bottom"><button><CircleHelp/> Pusat Bantuan</button><button><Settings/> Pengaturan</button><button onClick={logout}><LogOut/> Keluar</button><div className="profile-mini"><span>{initials}</span><p><b>{viewerName}</b><small>Mahasiswa · {student.nim}</small></p><ChevronDown/></div></div>
+      <div className="side-bottom"><button onClick={()=>choose("Pusat Bantuan")}><CircleHelp/> Pusat Bantuan</button><button onClick={()=>choose("Pengaturan")}><Settings/> Pengaturan</button><button onClick={logout}><LogOut/> Keluar</button><div className="profile-mini"><span>{initials}</span><p><b>{viewerName}</b><small>Mahasiswa · {student.nim}</small></p><ChevronDown/></div></div>
     </aside>
     {mobile&&<button className="scrim" onClick={()=>setMobile(false)}/>}
     <main className="dashboard-main">
@@ -85,6 +85,8 @@ export default function StudentDashboard({ viewerName, period, student, consulta
 
         {active==="Jadwal Bimbingan"&&<section className="panel module-panel"><header><div><h2>Jadwal saya</h2><p>Agenda bimbingan yang telah dikonfirmasi</p></div></header><div className="record-list">{appointments.map(a=><div className="static-record" key={a.id}><CalendarDays/><span><b>{a.topic}</b><small>{formatDate(a.startsAt)} · {a.method}</small></span><i className="status yellow">{statusLabel(a.decision)}</i></div>)}{appointments.length===0&&<StudentEmpty text="Belum ada jadwal bimbingan."/>}</div></section>}
         {active==="Profil Saya"&&<section className="panel profile-card"><header><div><h2>Identitas akademik</h2><p>Informasi akun yang telah disetujui pengelola.</p></div></header><dl><div><dt>Nama</dt><dd>{viewerName}</dd></div><div><dt>NIM</dt><dd>{student.nim}</dd></div><div><dt>Program</dt><dd>{student.program}</dd></div><div><dt>Status akun</dt><dd><i className="status green">Aktif</i></dd></div><div><dt>Tahap saat ini</dt><dd>{student.stage}</dd></div></dl></section>}
+        {active==="Pusat Bantuan"&&<section className="panel help-panel"><header><div><h2>Panduan mahasiswa</h2><p>Langkah utama menggunakan BimbingAI.</p></div></header><div className="help-grid"><article><UploadCloud/><b>Unggah naskah</b><p>Buka Dokumen Skripsi, pilih kategori dan berkas Word maksimum 4 MB.</p></article><article><MessageSquareText/><b>Buka konsultasi</b><p>Isi subjek dan pesan. Balasan pengelola akan muncul pada percakapan yang sama.</p></article><article><CalendarDays/><b>Periksa jadwal</b><p>Agenda bimbingan yang telah dibuat akan tampil di Jadwal Bimbingan.</p></article></div></section>}
+        {active==="Pengaturan"&&<section className="panel profile-card"><header><div><h2>Pengaturan akun</h2><p>Informasi keamanan akun mahasiswa.</p></div></header><dl><div><dt>Nama</dt><dd>{viewerName}</dd></div><div><dt>NIM</dt><dd>{student.nim}</dd></div><div><dt>Status</dt><dd><i className="status green">Aktif</i></dd></div><div><dt>Keamanan</dt><dd>Kata sandi dan sesi dikelola oleh Neon Auth.</dd></div></dl></section>}
       </div>
     </main>
     {toast&&<div className="toast" role="status"><UserRoundCheck/><span>{toast}</span><button onClick={()=>setToast("")}><X/></button></div>}
@@ -92,4 +94,3 @@ export default function StudentDashboard({ viewerName, period, student, consulta
 }
 
 function StudentEmpty({text}:{text:string}){return <div className="empty compact-empty"><span><GraduationCap/></span><h2>{text}</h2><p>Data akan muncul otomatis setelah fitur digunakan.</p></div>}
-
