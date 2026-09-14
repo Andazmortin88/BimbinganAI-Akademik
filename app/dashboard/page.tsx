@@ -13,6 +13,7 @@ type Viewer = {
 };
 
 type StudentRow = {
+  id: string;
   name: string;
   nim: string;
   program: string;
@@ -42,7 +43,7 @@ export default async function DashboardPage() {
   const isStudent = viewer.role === "STUDENT";
   const [studentRows, periodRows, countRows] = await Promise.all([
     sql`
-      SELECT p.full_name AS name, sp.nim, sp.program::text,
+      SELECT p.id::text, p.full_name AS name, sp.nim, sp.program::text,
              COALESCE(ps.name, 'Belum mulai') AS stage,
              COALESCE(ps.weight, 0)::float AS progress,
              p.status::text,
@@ -85,6 +86,7 @@ export default async function DashboardPage() {
   ]);
 
   const students: DashboardStudent[] = (studentRows as StudentRow[]).map(row => ({
+    id: row.id,
     name: row.name,
     nim: row.nim,
     program: row.program,
@@ -104,5 +106,6 @@ export default async function DashboardPage() {
     incomingCount={Number(counts?.incoming_count || 0)}
     documentCount={Number(counts?.document_count || 0)}
     currentTime={new Date().toISOString()}
+    canManageStudents={viewer.role === "ADMIN"}
   />;
 }
