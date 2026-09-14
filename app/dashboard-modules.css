@@ -126,6 +126,7 @@
 .ai-settings-panel form>label:not(.toggle-setting),.ai-setting-row label{display:flex;flex-direction:column;gap:7px;color:#40506a;font-size:11px;font-weight:750}
 .ai-settings-panel input,.ai-settings-panel textarea{border:1px solid #dce5ee;border-radius:10px;background:#fff;color:#26364f;padding:10px 11px;outline:0}
 .ai-settings-panel textarea{min-height:110px;resize:vertical;line-height:1.5}
+.provider-warning{display:block;margin-top:10px;color:#a15c00;font-weight:700;line-height:1.45}
 .ai-setting-row{display:grid;grid-template-columns:1fr 180px;gap:12px}
 .toggle-setting{display:flex;align-items:center;gap:10px;border:1px solid #dce8f4;background:#f4f9ff;border-radius:11px;padding:13px;cursor:pointer}
 .toggle-setting input{width:17px;height:17px}

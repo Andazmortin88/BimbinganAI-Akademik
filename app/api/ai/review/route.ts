@@ -153,7 +153,13 @@ Berikan maksimal ${maxFindings} temuan yang konkret dan dapat ditindaklanjuti.\n
     return NextResponse.json({ ok: true, reviewId, documentName: version.original_name, items });
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI gagal memproses dokumen.";
+    console.error("ai_review_failed", message.slice(0, 500));
     await sql`UPDATE public.ai_reviews SET status='FAILED', error_message=${message.slice(0, 500)}, updated_at=now() WHERE id=${reviewId}::uuid`;
+    if (message.includes("valid credit card")) {
+      return NextResponse.json({
+        error: "AI Gateway Vercel belum dapat digunakan karena akun belum memiliki metode pembayaran. Tambahkan metode pembayaran di Vercel AI Gateway atau simpan OPENAI_API_KEY di Vercel.",
+      }, { status: 402 });
+    }
     return NextResponse.json({ error: "AI gagal memproses dokumen. Periksa konfigurasi API atau coba kembali." }, { status: 502 });
   }
 }

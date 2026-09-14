@@ -73,7 +73,8 @@ export default async function DashboardPage() {
       ORDER BY a.starts_at`,
     viewer.role === "ADMIN" ? sql`
       SELECT ar.id::text, v.original_name AS document_name, p.full_name AS student_name,
-             ar.review_mode AS mode, ar.status, count(ari.id)::int AS item_count, ar.created_at
+             ar.review_mode AS mode, ar.status, ar.error_message,
+             count(ari.id)::int AS item_count, ar.created_at
       FROM public.ai_reviews ar JOIN public.document_versions v ON v.id=ar.document_version_id
       JOIN public.documents d ON d.id=v.document_id JOIN public.research_projects rp ON rp.id=d.project_id
       JOIN public.profiles p ON p.id=rp.student_id LEFT JOIN public.ai_review_items ari ON ari.ai_review_id=ar.id
@@ -113,6 +114,10 @@ export default async function DashboardPage() {
   }));
   const period = String((periodRows[0] as {name?:string}|undefined)?.name || "Periode belum diatur");
   const rawAiSettings = aiSettingRows[0] as { enabled?: boolean; model_name?: string; custom_instructions?: string; max_findings?: number } | undefined;
+  const latestReview = reviewRows[0] as { status?: string; error_message?: string | null } | undefined;
+  const gatewayBillingIssue = latestReview?.status === "FAILED" && latestReview.error_message?.includes("valid credit card")
+    ? "AI Gateway Vercel memerlukan metode pembayaran untuk membuka kredit AI."
+    : null;
   const aiSettings: DashboardAiSettings = {
     enabled: rawAiSettings?.enabled ?? true,
     modelName: rawAiSettings?.model_name || "gpt-5-mini",
@@ -124,6 +129,7 @@ export default async function DashboardPage() {
       process.env.AI_GATEWAY_API_KEY ||
       process.env.VERCEL,
     ),
+    providerIssue: gatewayBillingIssue,
   };
 
   if (viewer.role === "STUDENT") {

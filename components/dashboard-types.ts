@@ -70,4 +70,5 @@ export type DashboardAiSettings = {
   customInstructions: string;
   maxFindings: number;
   apiConfigured: boolean;
+  providerIssue: string | null;
 };
