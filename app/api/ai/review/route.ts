@@ -1,53 +1,122 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth/server";
 import { getSql } from "@/lib/db";
+import { getViewer } from "@/lib/viewer";
+
+export const runtime = "nodejs";
+export const maxDuration = 120;
 
 const requestSchema = z.object({
   documentVersionId: z.string().uuid(),
-  mode: z.enum(["QUICK","LANGUAGE","BAB_I","BAB_II","BAB_III","BAB_IV","BAB_V","REFERENCES","FULL","EXAMINER","COMPARE"]),
-  extractedText: z.string().min(100).max(180_000),
+  mode: z.enum(["QUICK", "LANGUAGE", "BAB_I", "BAB_II", "BAB_III", "BAB_IV", "BAB_V", "REFERENCES", "FULL", "EXAMINER"]),
 });
 
+const itemSchema = z.object({
+  category: z.string().min(1).max(100),
+  severity: z.enum(["MAJOR", "MINOR", "LANGUAGE"]),
+  location: z.string().max(250).nullable().optional(),
+  quotation: z.string().max(1500).nullable().optional(),
+  finding: z.string().min(1).max(3000),
+  rationale: z.string().min(1).max(3000),
+  suggestion: z.string().min(1).max(3000),
+  confidence: z.number().min(0).max(1).nullable().optional(),
+  examiner_question: z.string().max(1000).nullable().optional(),
+  verification_source: z.string().max(1000).nullable().optional(),
+});
+
+function extractOutputText(result: unknown) {
+  if (!result || typeof result !== "object") return "";
+  const response = result as { output_text?: string; output?: Array<{ content?: Array<{ type?: string; text?: string }> }> };
+  if (response.output_text) return response.output_text;
+  return (response.output || []).flatMap(item => item.content || []).filter(item => item.type === "output_text").map(item => item.text || "").join("");
+}
+
 export async function POST(request: Request) {
-  const { data: session } = await auth.getSession();
-  if (!session?.user) return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
+  if (viewer.role !== "ADMIN" || viewer.status !== "ACTIVE") {
+    return NextResponse.json({ error: "AI Review hanya dapat dijalankan oleh administrator." }, { status: 403 });
+  }
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Permintaan review tidak valid." }, { status: 400 });
 
   const sql = getSql();
   const versions = await sql`
-    SELECT v.id, v.checksum_sha256, d.project_id
+    SELECT v.id::text, v.checksum_sha256, v.original_name, f.extracted_text
     FROM public.document_versions v
-    JOIN public.documents d ON d.id = v.document_id
-    JOIN public.research_projects r ON r.id = d.project_id
-    JOIN public.profiles me ON me.auth_user_id = ${session.user.id}::uuid
-    WHERE v.id = ${parsed.data.documentVersionId}::uuid
-      AND me.status = 'ACTIVE'
-      AND (
-        me.role = 'ADMIN'
-        OR r.student_id = me.id
-        OR EXISTS (
-          SELECT 1 FROM public.supervision_assignments a
-          WHERE a.project_id = d.project_id AND a.lecturer_id = me.id AND a.is_active
-        )
-      )
+    JOIN public.document_files f ON f.document_version_id=v.id
+    WHERE v.id=${parsed.data.documentVersionId}::uuid
     LIMIT 1
   `;
-  const version = versions[0];
-  if (!version) return NextResponse.json({ error: "Dokumen tidak ditemukan atau akses ditolak." }, { status: 404 });
+  const version = versions[0] as { id: string; checksum_sha256: string; original_name: string; extracted_text: string | null } | undefined;
+  if (!version) return NextResponse.json({ error: "Dokumen tidak ditemukan." }, { status: 404 });
+  if (!version.extracted_text || version.extracted_text.length < 100) {
+    return NextResponse.json({ error: "Teks dokumen belum dapat dibaca. Gunakan berkas .docx yang berisi teks." }, { status: 422 });
+  }
 
   const apiKey = process.env.AI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Layanan AI belum dikonfigurasi oleh admin." }, { status: 503 });
+  const model = "gpt-5-mini";
+  const reviewRows = await sql`
+    INSERT INTO public.ai_reviews
+      (document_version_id, review_mode, document_hash, model_name, rubric_version, status, requested_by)
+    VALUES (${version.id}::uuid, ${parsed.data.mode}, ${version.checksum_sha256}, ${model}, 1, 'PROCESSING', ${viewer.id}::uuid)
+    ON CONFLICT (document_hash, review_mode, rubric_version, model_name)
+    DO UPDATE SET status='PROCESSING', requested_by=EXCLUDED.requested_by, error_message=NULL, updated_at=now()
+    RETURNING id::text
+  `;
+  const reviewId = (reviewRows[0] as { id: string }).id;
 
-  const prompt = `Anda adalah asisten review akademik keperawatan. Mode: ${parsed.data.mode}. Temukan masalah secara spesifik. Jangan menyatakan plagiarisme. Kembalikan JSON array dengan field category, severity (MAJOR|MINOR|LANGUAGE), location, quotation, finding, rationale, suggestion, confidence, examiner_question, verification_source.\n\nDOKUMEN:\n${parsed.data.extractedText}`;
-  const aiResponse = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "gpt-5-mini", input: prompt, max_output_tokens: 8000 }),
-    signal: AbortSignal.timeout(120_000),
-  });
-  if (!aiResponse.ok) return NextResponse.json({ error: "AI gagal memproses dokumen. Coba kembali nanti." }, { status: 502 });
-  const result = await aiResponse.json();
-  return NextResponse.json({ status: "REVIEWED_PRIVATE", raw: result, warning: "Hasil AI wajib diperiksa dosen dan tidak otomatis dikirim kepada mahasiswa." });
+  const prompt = `Tinjau naskah akademik keperawatan berikut dalam bahasa Indonesia. Mode review: ${parsed.data.mode}.
+Fokus pada logika ilmiah, konsistensi metode, bahasa akademik, dan hal yang perlu diverifikasi. Jangan menyatakan plagiarisme dan jangan mengarang sumber. Berikan temuan yang konkret dan dapat ditindaklanjuti.\n\nNASKAH:\n${version.extracted_text}`;
+
+  try {
+    const aiResponse = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        input: prompt,
+        max_output_tokens: 8000,
+        text: { format: { type: "json_schema", name: "academic_review", strict: true, schema: {
+          type: "object", additionalProperties: false,
+          properties: { items: { type: "array", maxItems: 30, items: {
+            type: "object", additionalProperties: false,
+            properties: {
+              category: { type: "string" }, severity: { type: "string", enum: ["MAJOR", "MINOR", "LANGUAGE"] },
+              location: { type: ["string", "null"] }, quotation: { type: ["string", "null"] },
+              finding: { type: "string" }, rationale: { type: "string" }, suggestion: { type: "string" },
+              confidence: { type: ["number", "null"], minimum: 0, maximum: 1 },
+              examiner_question: { type: ["string", "null"] }, verification_source: { type: ["string", "null"] },
+            },
+            required: ["category", "severity", "location", "quotation", "finding", "rationale", "suggestion", "confidence", "examiner_question", "verification_source"],
+          } } }, required: ["items"],
+        } } },
+      }),
+      signal: AbortSignal.timeout(115_000),
+    });
+    if (!aiResponse.ok) {
+      const body = await aiResponse.text();
+      console.error("ai_review_provider_failed", aiResponse.status, body.slice(0, 500));
+      throw new Error(`Penyedia AI mengembalikan status ${aiResponse.status}.`);
+    }
+    const result = await aiResponse.json();
+    const output = JSON.parse(extractOutputText(result));
+    const items = z.array(itemSchema).min(1).max(30).parse(output.items);
+    await sql.transaction((tx) => [
+      tx`DELETE FROM public.ai_review_items WHERE ai_review_id=${reviewId}::uuid`,
+      ...items.map(item => tx`INSERT INTO public.ai_review_items
+        (ai_review_id, category, severity, location, quotation, finding, rationale, suggestion, confidence, examiner_question, verification_source)
+        VALUES (${reviewId}::uuid, ${item.category}, ${item.severity}::public.comment_severity,
+          ${item.location || null}, ${item.quotation || null}, ${item.finding}, ${item.rationale}, ${item.suggestion},
+          ${item.confidence ?? null}, ${item.examiner_question || null}, ${item.verification_source || null})`),
+      tx`UPDATE public.ai_reviews SET status='COMPLETED', completed_at=now(), updated_at=now() WHERE id=${reviewId}::uuid`,
+    ]);
+    return NextResponse.json({ ok: true, reviewId, documentName: version.original_name, items });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "AI gagal memproses dokumen.";
+    await sql`UPDATE public.ai_reviews SET status='FAILED', error_message=${message.slice(0, 500)}, updated_at=now() WHERE id=${reviewId}::uuid`;
+    return NextResponse.json({ error: "AI gagal memproses dokumen. Periksa konfigurasi API atau coba kembali." }, { status: 502 });
+  }
 }
+
