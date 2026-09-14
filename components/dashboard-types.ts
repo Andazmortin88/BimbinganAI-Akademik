@@ -24,7 +24,6 @@ export type DashboardDocument = {
   status: string;
   sizeBytes: number;
   createdAt: string;
-  canAiReview: boolean;
 };
 
 export type DashboardMessage = {
@@ -54,21 +53,81 @@ export type DashboardAppointment = {
   meetingUrl: string | null;
 };
 
-export type DashboardReview = {
+export type DashboardTitle = {
   id: string;
-  documentName: string;
   studentName: string;
-  mode: string;
-  status: string;
-  itemCount: number;
+  studentId: string;
+  sequence: number;
+  title: string;
+  background: string;
+  researchProblem: string;
+  objective: string;
+  proposedMethod: string | null;
+  initialReferences: string | null;
+  decision: string;
+  decisionReason: string | null;
   createdAt: string;
 };
 
-export type DashboardAiSettings = {
-  enabled: boolean;
-  modelName: string;
-  customInstructions: string;
-  maxFindings: number;
-  apiConfigured: boolean;
-  providerIssue: string | null;
+export type DashboardLogbook = {
+  id: string;
+  studentName: string;
+  entryDate: string;
+  topic: string;
+  summary: string;
+  feedbackReceived: string | null;
+  actionItems: string[];
+  nextMeetingTarget: string | null;
+  meetingType: string;
+  isVerified: boolean;
+};
+
+export type DashboardProgress = {
+  id: number;
+  name: string;
+  weight: number;
+  status: "APPROVED" | "IN_PROGRESS" | "NOT_STARTED";
+};
+
+export type DashboardNotification = {
+  id: string;
+  title: string;
+  body: string;
+  type: string;
+  targetUrl: string | null;
+  readAt: string | null;
+  createdAt: string;
+};
+
+export type DashboardBookingSlot = {
+  id: string;
+  lecturerName: string;
+  startsAt: string;
+  endsAt: string;
+  method: string;
+  locationOrUrl: string | null;
+  quota: number;
+  booked: number;
+  myBookingId: string | null;
+  myBookingStatus: string | null;
+};
+
+export type DashboardPeriod = {
+  id: string;
+  name: string;
+  semester: number;
+  academicYear: string | null;
+  startsOn: string;
+  endsOn: string;
+  isActive: boolean;
+  isLocked: boolean;
+};
+
+export type DashboardAudit = {
+  id: string;
+  actorName: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  createdAt: string;
 };

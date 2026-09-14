@@ -136,6 +136,31 @@
 .ai-settings-panel .button{align-self:flex-start;font-size:10px;min-height:40px}
 .ai-settings-panel .button svg{width:15px}
 
+.detail-record,.review-record,.booking-record,.period-record{display:flex;align-items:flex-start;gap:14px;padding:15px 0;border-bottom:1px solid #edf1f5}
+.detail-record:last-child,.review-record:last-child,.booking-record:last-child,.period-record:last-child{border-bottom:0}
+.detail-record>div,.review-record>div,.booking-record>div,.period-record>span{flex:1;min-width:0}
+.detail-record b,.detail-record small,.review-record b,.review-record small,.booking-record b,.booking-record small,.period-record b,.period-record small{display:block}
+.detail-record small,.review-record small,.booking-record small,.period-record small{font-size:9px;color:#76869a;margin-top:4px}
+.detail-record p,.review-record p,.booking-record p{font-size:10px;line-height:1.55;color:#5f7086;margin:8px 0 0}
+.review-record h3{font-size:13px;line-height:1.45;margin:7px 0}
+.review-record>aside{width:min(320px,38%);display:flex;flex-direction:column;gap:8px}
+.review-record textarea{min-height:78px;border:1px solid #dce5ee;border-radius:9px;padding:9px;resize:vertical}
+.review-record aside>div{display:flex;gap:5px;flex-wrap:wrap}
+.review-record button,.period-record button{border:1px solid #cbdbea;background:#fff;color:#286bbd;border-radius:8px;padding:7px 9px;font-size:9px;font-weight:800;cursor:pointer}
+.review-record button.reject{color:#b9354b;border-color:#ffd0d8;background:#fff4f5}
+.booking-record>svg,.period-record>svg{width:22px;color:#2876d7;flex:none}
+.inline-book{display:flex;gap:7px;align-items:center;min-width:270px}
+.inline-book input{min-width:0;border:1px solid #dce5ee;border-radius:9px;padding:9px}
+.timeline-list{padding:18px}
+.timeline-list article{display:flex;gap:12px;align-items:center;position:relative;padding:10px 0}
+.timeline-list article>span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#edf2f7;color:#8795a7;flex:none}
+.timeline-list article>span.done{background:#e1f7ed;color:#087b58}.timeline-list article>span.current{background:#e5f2ff;color:#2876d7}
+.timeline-list article svg{width:16px}.timeline-list article b,.timeline-list article small{display:block}.timeline-list article b{font-size:11px}.timeline-list article small{font-size:9px;color:#76869a;margin-top:3px}
+.unread-record{background:#f3f8ff!important;border-left:3px solid #2876d7!important}
+.bell{position:relative}.bell>em{position:absolute;right:2px;top:2px;background:#e23d57;color:#fff;border-radius:20px;min-width:15px;height:15px;display:grid;place-items:center;font-size:8px;font-style:normal}
+.stats-bars{padding-bottom:18px}.stats-bars>article{display:grid;grid-template-columns:180px 1fr 45px;gap:12px;align-items:center;padding:8px 20px;font-size:10px}.stats-bars>article>div{height:8px;border-radius:10px;background:#e8eef5;overflow:hidden}.stats-bars>article i{height:100%;display:block;background:linear-gradient(90deg,#2876d7,#16b5d9);border-radius:10px}.stats-bars>article b{text-align:right}
+.period-record{align-items:center}.period-record .status{margin-left:auto}.period-record button{display:flex;align-items:center;gap:5px}.period-record button svg{width:13px}
+
 @media(max-width:900px){.module-grid{grid-template-columns:1fr}
 .help-grid{grid-template-columns:repeat(2,1fr)}
 .decision-grid,.archive-grid{grid-template-columns:1fr}
@@ -158,4 +183,8 @@
 .archive-grid>article{grid-template-columns:auto 1fr}
 .danger-button{grid-column:1/-1;width:100%}
 .exam-decision{align-items:flex-start;flex-direction:column}
+.detail-record,.review-record,.booking-record{flex-direction:column}
+.review-record>aside{width:100%}
+.inline-book{min-width:0;width:100%}
+.stats-bars>article{grid-template-columns:1fr 2fr 38px;padding-inline:14px}
 }

@@ -1,5 +1,5 @@
 {
-  "name": "bimbingai-akademik",
+  "name": "bimbingan-andaz",
   "version": "1.0.0",
   "private": true,
   "engines": {
@@ -15,7 +15,6 @@
   "dependencies": {
     "@neondatabase/auth": "0.5.0-beta",
     "@neondatabase/serverless": "^1.1.0",
-    "ai": "^7.0.99",
     "lucide-react": "0.468.0",
     "mammoth": "^1.12.3",
     "next": "16.3.4",

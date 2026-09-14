@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 import { getSql } from "@/lib/db";
 import { getViewer } from "@/lib/viewer";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -12,7 +13,8 @@ const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingm
 const DOC_MIME = "application/msword";
 const CATEGORIES = new Set(["PROPOSAL", "BAB I", "BAB II", "BAB III", "BAB IV", "BAB V", "NASKAH LENGKAP"]);
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const limited=enforceRateLimit(request,"documents",10,60_000);if(limited)return limited;
   const viewer = await getViewer();
   if (!viewer) return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
   if (viewer.role !== "STUDENT" || viewer.status !== "ACTIVE") {
@@ -90,4 +92,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true, versionId, extracted: Boolean(extractedText) });
 }
-

@@ -1,10 +1,10 @@
-import { ArrowRight, Bot, CheckCircle2, FileCheck2, FolderLock, GraduationCap, MessageSquareText, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
+import { ArrowRight, BarChart3, CheckCircle2, FileCheck2, FolderLock, GraduationCap, MessageSquareText, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
 import EmailAuth from "@/components/email-auth";
 
 const features = [
   { icon: MessageSquareText, title: "Bimbingan dua arah", text: "Percakapan, lampiran, feedback, dan revisi tersimpan dalam satu riwayat." },
   { icon: FileCheck2, title: "Versi dokumen tertib", text: "Setiap unggahan menjadi versi baru. Dokumen lama tidak pernah tertimpa." },
-  { icon: Bot, title: "AI review privat", text: "Temuan AI diperiksa dosen lebih dahulu sebelum dipilih dan dikirim." },
+  { icon: BarChart3, title: "Progres terukur", text: "Milestone skripsi, target, dan tindak lanjut terlihat jelas oleh mahasiswa dan dosen." },
   { icon: FolderLock, title: "Arsip dosen", text: "Rekap bimbingan, dokumen, progres, dan laporan mudah dicari kembali." },
 ];
 
@@ -12,7 +12,7 @@ export default function Home() {
   return (
     <main className="landing">
       <nav className="nav shell" aria-label="Navigasi utama">
-        <a className="brand" href="#top"><span className="brandmark"><GraduationCap size={22}/></span><span>Bimbing<span>AI</span></span></a>
+        <a className="brand" href="#top"><span className="brandmark"><GraduationCap size={22}/></span><span>Bimbingan <span>Andaz</span></span></a>
         <div className="navlinks"><a href="#fitur">Fitur</a><a href="#alur">Alur</a><a href="#keamanan">Keamanan</a></div>
         <a className="button ghost" href="#masuk">Masuk</a>
       </nav>
@@ -21,7 +21,7 @@ export default function Home() {
         <div className="hero-copy">
           <div className="eyebrow"><Sparkles size={15}/> Sistem bimbingan akademik terpadu</div>
           <h1>Bimbingan lebih terarah, <span>terdokumentasi</span>, dan cerdas.</h1>
-          <p>Kelola konsultasi, perkembangan penelitian, versi dokumen, revisi, jadwal, dan AI Academic Review dalam satu sistem yang aman.</p>
+          <p>Kelola pengajuan judul, konsultasi, perkembangan penelitian, versi dokumen, revisi, jadwal, dan arsip dalam satu sistem yang aman.</p>
           <div className="hero-actions">
             <a className="button primary" href="#masuk">Daftar atau masuk <ArrowRight size={18}/></a>
             <a className="button secondary" href="#fitur">Lihat fitur</a>
@@ -58,7 +58,7 @@ export default function Home() {
 
       <section className="security shell" id="keamanan"><div className="security-icon"><ShieldCheck/></div><div><span>PRIVASI SEJAK AWAL</span><h2>Data akademik hanya terbuka untuk orang yang berwenang</h2><p>Autentikasi dikelola Neon Auth, sedangkan akses database dijalankan melalui server dan diperiksa berdasarkan peran serta penugasan pembimbing.</p></div><a className="button dark" href="#masuk">Masuk ke sistem <ArrowRight/></a></section>
 
-      <footer><div className="shell"><div className="brand"><span className="brandmark"><GraduationCap size={22}/></span><span>Bimbing<span>AI</span></span></div><p>Academic Supervision, Document Archive & AI Review System</p><small>© 2026 Universitas Bani Saleh</small></div></footer>
+      <footer><div className="shell"><div className="brand"><span className="brandmark"><GraduationCap size={22}/></span><span>Bimbingan <span>Andaz</span></span></div><p>Sistem Bimbingan dan Arsip Akademik Terpadu</p><small>© 2026 Universitas Bani Saleh</small></div></footer>
     </main>
   );
 }

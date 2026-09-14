@@ -1,11 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { getViewer } from "@/lib/viewer";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const schema = z.object({ message: z.string().trim().min(1).max(5000) });
 
-export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const limited=enforceRateLimit(request,"messages",60,60_000);if(limited)return limited;
   const viewer = await getViewer();
   if (!viewer || viewer.status !== "ACTIVE") return NextResponse.json({ error: "Akses ditolak." }, { status: 401 });
   const { id } = await context.params;
@@ -26,7 +28,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const status = viewer.role === "STUDENT" ? "SUBMITTED" : "IN_REVIEW";
   await sql.transaction((tx) => [
     tx`INSERT INTO public.messages (thread_id, sender_id, body) VALUES (${id}::uuid, ${viewer.id}::uuid, ${parsed.data.message})`,
-    tx`UPDATE public.guidance_threads SET status=${status}::public.review_status, updated_at=now() WHERE id=${id}::uuid`,
+    tx`UPDATE public.guidance_threads SET status=${status}::public.review_status, updated_at=now(), last_message_at=now(),
+       unread_count_student=CASE WHEN ${viewer.role === "STUDENT"} THEN 0 ELSE unread_count_student+1 END,
+       unread_count_lecturer=CASE WHEN ${viewer.role === "STUDENT"} THEN unread_count_lecturer+1 ELSE 0 END
+       WHERE id=${id}::uuid`,
     tx`INSERT INTO public.notifications (recipient_id, title, body, type, target_url)
        SELECT CASE WHEN ${viewer.role === "STUDENT"} THEN p.id ELSE ${(allowed[0] as { student_id: string }).student_id}::uuid END,
               'Balasan konsultasi', ${`${viewer.fullName} mengirim balasan.`}, 'CONSULTATION', '/dashboard'
@@ -36,4 +41,3 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   ]);
   return NextResponse.json({ ok: true });
 }
-

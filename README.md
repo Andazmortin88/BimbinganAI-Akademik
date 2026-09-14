@@ -1,10 +1,10 @@
-# BimbingAI Akademik — Neon Edition
+# Bimbingan Andaz — Neon Edition
 
 Sistem monitoring **Skripsi S1 Keperawatan, KTI D3 Keperawatan, dan KIA Profesi Ners**. Aplikasi menggunakan Next.js App Router di Vercel, Neon Auth untuk autentikasi, serta Lakebase Postgres pada Neon untuk data akademik.
 
 ## Status
 
-- Proyek Neon `BimbingAI Akademik` aktif di region Singapore.
+- Proyek Neon aktif di region Singapore (identitas teknis lama dipertahankan agar koneksi produksi tidak rusak).
 - Database `bimbingai` dan branch `main` aktif.
 - Sebanyak 26 tabel aplikasi dan 17 tahap progres telah dibuat.
 - Managed Better Auth aktif dengan Google OAuth bersama untuk pengujian.
@@ -22,7 +22,7 @@ Next.js 16 di Vercel
 ├── Neon Auth proxy       → login, sesi, logout
 ├── Server API            → validasi role dan kepemilikan
 ├── Lakebase Postgres     → data akademik
-└── Server route AI       → AI_API_KEY tetap privat
+└── Route Handler         → validasi peran dan data akademik
 ```
 
 Koneksi `DATABASE_URL` hanya digunakan pada server dan tidak pernah memakai awalan `NEXT_PUBLIC_`.
@@ -37,7 +37,6 @@ NEON_AUTH_BASE_URL=https://ep-tiny-hat-b3imoxg4.neonauth.c-4.ap-southeast-1.aws.
 NEON_AUTH_COOKIE_SECRET=rahasia-acak-minimal-32-karakter
 ADMIN_EMAIL=email-pemilik-aplikasi
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
-AI_API_KEY=
 ```
 
 Untuk produksi, ubah `NEXT_PUBLIC_SITE_URL` menjadi URL aplikasi Vercel tanpa garis miring di belakang.
@@ -48,7 +47,9 @@ Untuk produksi, ubah `NEXT_PUBLIC_SITE_URL` menjadi URL aplikasi Vercel tanpa ga
 ```text
 app/api/auth/[...path]/  proxy API Neon Auth
 app/api/register/        registrasi mahasiswa secara transaksional
-app/api/ai/review/       review AI dengan pemeriksaan akses
+app/api/titles/          pengajuan dan keputusan judul
+app/api/logbook/         catatan serta verifikasi bimbingan
+app/api/bookings/        slot dan booking bimbingan
 app/auth/callback/       pengarah pengguna setelah login
 lib/auth/                klien dan server Neon Auth
 lib/db.ts                koneksi database khusus server
@@ -84,7 +85,7 @@ Login utama menggunakan email dan kata sandi Neon Auth. Jika institusi ingin men
 
 ## Keamanan produksi
 
-- Jangan memasukkan `DATABASE_URL`, cookie secret, atau `AI_API_KEY` ke GitHub.
+- Jangan memasukkan `DATABASE_URL` atau cookie secret ke GitHub.
 - Gunakan URL pooled Neon untuk trafik aplikasi serverless.
 - Tambahkan domain produksi ke trusted domains Neon Auth.
 - Ganti kredensial Google bersama dengan kredensial milik institusi.
@@ -99,4 +100,4 @@ pnpm typecheck
 pnpm build
 ```
 
-Uji pendaftaran email, login, registrasi, status pending, logout, pembatasan dokumen, penugasan pembimbing, dan endpoint review AI sebelum digunakan mahasiswa.
+Uji pendaftaran email, login, registrasi, status pending, pengajuan judul, konsultasi, dokumen, logbook, booking, dan keputusan dosen sebelum digunakan mahasiswa.

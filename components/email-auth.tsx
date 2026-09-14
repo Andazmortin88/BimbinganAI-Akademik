@@ -47,7 +47,7 @@ export default function EmailAuth() {
         <button type="button" className={mode === "signin" ? "active" : ""} onClick={() => { setMode("signin"); setMessage(""); }}>Masuk</button>
         <button type="button" className={mode === "signup" ? "active" : ""} onClick={() => { setMode("signup"); setMessage(""); }}>Daftar</button>
       </div>
-      <h2 id="auth-title">{mode === "signin" ? "Masuk ke BimbingAI" : "Buat akun mahasiswa"}</h2>
+      <h2 id="auth-title">{mode === "signin" ? "Masuk ke Bimbingan Andaz" : "Buat akun mahasiswa"}</h2>
       <p>{mode === "signin" ? "Gunakan email dan kata sandi yang telah didaftarkan." : "Setelah mendaftar, lengkapi profil akademik untuk diperiksa dosen."}</p>
       <form onSubmit={submit}>
         {mode === "signup" && <label><UserRound/><input aria-label="Nama lengkap" required minLength={2} value={name} onChange={e => setName(e.target.value)} placeholder="Nama lengkap" autoComplete="name"/></label>}
@@ -56,7 +56,7 @@ export default function EmailAuth() {
         {message && <div className="auth-message" role="alert">{message}</div>}
         <button className="button primary" disabled={loading}>{loading ? <><LoaderCircle className="spin"/> Memproses…</> : <>{mode === "signin" ? "Masuk" : "Daftar akun"}<ArrowRight/></>}</button>
       </form>
-      <small>Login dilindungi Neon Auth. Kata sandi tidak disimpan di aplikasi BimbingAI.</small>
+      <small>Login dilindungi Neon Auth. Kata sandi tidak disimpan di aplikasi Bimbingan Andaz.</small>
     </section>
   );
 }

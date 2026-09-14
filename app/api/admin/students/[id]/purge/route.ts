@@ -41,13 +41,6 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
   try {
     await sql.transaction((tx) => [
-      tx`DELETE FROM public.ai_review_items WHERE ai_review_id IN (
-        SELECT ar.id FROM public.ai_reviews ar
-        JOIN public.document_versions v ON v.id=ar.document_version_id
-        JOIN public.documents d ON d.id=v.document_id WHERE d.project_id=${student.project_id}::uuid)`,
-      tx`DELETE FROM public.ai_reviews WHERE document_version_id IN (
-        SELECT v.id FROM public.document_versions v
-        JOIN public.documents d ON d.id=v.document_id WHERE d.project_id=${student.project_id}::uuid)`,
       tx`DELETE FROM public.document_comments WHERE document_version_id IN (
         SELECT v.id FROM public.document_versions v
         JOIN public.documents d ON d.id=v.document_id WHERE d.project_id=${student.project_id}::uuid)`,
@@ -83,4 +76,3 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
   return NextResponse.json({ ok: true, deletedStudent: student.full_name });
 }
-

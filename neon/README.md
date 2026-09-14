@@ -1,6 +1,6 @@
-# Konfigurasi Neon BimbingAI
+# Konfigurasi Neon Bimbingan Andaz
 
-- Project: `BimbingAI Akademik`
+- Project: `BimbingAI Akademik` (identitas teknis lama, tidak mengubah brand aplikasi)
 - Region: `aws-ap-southeast-1` (Singapore)
 - Branch: `main`
 - Database: `bimbingai`

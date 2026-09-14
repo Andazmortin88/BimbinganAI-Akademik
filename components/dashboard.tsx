@@ -1,236 +1,73 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Archive, Bell, Bot, CalendarDays, CheckCircle2, ChevronDown, CircleHelp, ClipboardList, Clock3, Download,
-  FileText, GraduationCap, LayoutDashboard, LogOut, Menu, MessageSquareText,
-  Search, Send, Settings, SlidersHorizontal, Sparkles, Trash2, UserRoundCheck, UsersRound, X,
+  Archive, BarChart3, Bell, BookOpen, CalendarDays, CalendarPlus, CheckCircle2,
+  ChevronDown, CircleHelp, ClipboardList, Clock3, Download, FileCheck2, FileText,
+  GraduationCap, LayoutDashboard, Lock, LogOut, Menu, MessageSquareText, Search,
+  Send, Settings, Trash2, UserRoundCheck, UsersRound, X,
 } from "lucide-react";
 import { authClient } from "@/lib/auth/client";
-import type { DashboardAiSettings, DashboardAppointment, DashboardConsultation, DashboardDocument, DashboardReview, DashboardStudent } from "@/components/dashboard-types";
+import type {
+  DashboardAppointment, DashboardAudit, DashboardBookingSlot, DashboardConsultation,
+  DashboardDocument, DashboardLogbook, DashboardPeriod, DashboardStudent, DashboardTitle,
+} from "@/components/dashboard-types";
 
-export type { DashboardStudent } from "@/components/dashboard-types";
+export type {DashboardStudent} from "@/components/dashboard-types";
+type Props={viewerName:string;viewerRole:"ADMIN"|"LECTURER";period:string;students:DashboardStudent[];consultations:DashboardConsultation[];documents:DashboardDocument[];appointments:DashboardAppointment[];titles:DashboardTitle[];logbook:DashboardLogbook[];bookingSlots:DashboardBookingSlot[];periods:DashboardPeriod[];audits:DashboardAudit[];currentTime:string};
+const commonNav=[["Ringkasan",LayoutDashboard],["Mahasiswa",UsersRound],["Antrian & Bimbingan",MessageSquareText],["Dokumen",FileText],["Pengajuan Judul",FileCheck2],["Catatan Bimbingan",BookOpen],["Slot Bimbingan",CalendarPlus],["Jadwal",CalendarDays],["Statistik",BarChart3],["Arsip Bimbingan",Archive]] as const;
+const adminOnly=[["Periode Akademik",ClipboardList],["Log Audit",Clock3]] as const;
+const statusLabel=(status:string)=>({ACTIVE:"Aktif",PENDING:"Menunggu",DISABLED:"Nonaktif",REJECTED:"Ditolak",COMPLETED:"Selesai",SUBMITTED:"Dikirim",IN_REVIEW:"Ditinjau",REVISION:"Perlu revisi",APPROVED:"Disetujui",DONE:"Selesai",FAILED:"Gagal",CONFIRMED:"Terkonfirmasi"} as Record<string,string>)[status]||status;
+const statusTone=(status:string)=>["ACTIVE","APPROVED","COMPLETED","CONFIRMED"].includes(status)?"green":["PENDING","SUBMITTED"].includes(status)?"yellow":["REJECTED","FAILED"].includes(status)?"red":"orange";
+const formatDate=(value:string)=>new Intl.DateTimeFormat("id-ID",{dateStyle:"medium",timeStyle:"short"}).format(new Date(value));
+const formatSize=(bytes:number)=>bytes<1024*1024?`${Math.ceil(bytes/1024)} KB`:`${(bytes/1024/1024).toFixed(1)} MB`;
 
-type Props = {
-  viewerName: string;
-  viewerRole: "ADMIN" | "LECTURER";
-  period: string;
-  students: DashboardStudent[];
-  consultations: DashboardConsultation[];
-  documents: DashboardDocument[];
-  appointments: DashboardAppointment[];
-  reviews: DashboardReview[];
-  aiSettings: DashboardAiSettings;
-  currentTime: string;
-};
+export default function Dashboard(props:Props){
+  const {viewerName,viewerRole,period,students,consultations,documents,appointments,titles,logbook,bookingSlots,periods,audits,currentTime}=props;
+  const router=useRouter();const nav=viewerRole==="ADMIN"?[...commonNav,...adminOnly]:commonNav;const [studentRecords,setStudentRecords]=useState(students);const [active,setActive]=useState("Ringkasan");const [search,setSearch]=useState("");const [mobile,setMobile]=useState(false);const [toast,setToast]=useState("");const [busy,setBusy]=useState("");const [reply,setReply]=useState<Record<string,string>>({});const [reviewNotes,setReviewNotes]=useState<Record<string,string>>({});
+  const [slotForm,setSlotForm]=useState({startsAt:"",endsAt:"",method:"Tatap muka",locationOrUrl:"",quota:1});const [periodForm,setPeriodForm]=useState({name:"",semester:1,academicYear:"",startsOn:"",endsOn:""});
+  const filtered=useMemo(()=>studentRecords.filter(s=>`${s.name} ${s.nim} ${s.program}`.toLowerCase().includes(search.toLowerCase())),[search,studentRecords]);const activeStudents=studentRecords.filter(s=>s.status==="ACTIVE").length;const incomingCount=consultations.filter(c=>["SUBMITTED","WAITING_REVIEW"].includes(c.status)).length;const referenceTime=new Date(currentTime).getTime();const followup=studentRecords.filter(s=>referenceTime-new Date(s.updatedAt).getTime()>14*86400000).length;const archivedStudents=studentRecords.filter(s=>s.status==="COMPLETED"||Boolean(s.archivedAt));const initials=viewerName.split(" ").map(x=>x[0]).join("").slice(0,2).toUpperCase();
+  async function logout(){await authClient.signOut();router.replace("/");router.refresh()}
+  async function requestJson(url:string,method:string,body:unknown,key:string,success:string){setBusy(key);const response=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const result=await response.json().catch(()=>({}));setBusy("");if(!response.ok){setToast(result.error||"Permintaan belum dapat diproses.");return false}setToast(success);router.refresh();return true}
+  async function updateStudentStatus(student:DashboardStudent,status:"ACTIVE"|"REJECTED"){if(status==="REJECTED"&&!window.confirm(`Tolak registrasi ${student.name}?`))return;if(await requestJson(`/api/admin/students/${student.id}/status`,"POST",{status},student.id,status==="ACTIVE"?`${student.name} berhasil diaktifkan.`:`${student.name} ditolak.`))setStudentRecords(list=>list.map(x=>x.id===student.id?{...x,status}:x))}
+  async function sendReply(event:FormEvent,id:string){event.preventDefault();const message=reply[id]?.trim();if(!message)return;if(await requestJson(`/api/consultations/${id}/messages`,"POST",{message},id,"Balasan berhasil dikirim."))setReply(v=>({...v,[id]:""}))}
+  async function setEligibility(student:DashboardStudent,examType:"PROPOSAL"|"RESULT",decision:"NOT_YET"|"ELIGIBLE"){if(!student.projectId)return setToast("Proyek mahasiswa belum tersedia.");if(await requestJson(`/api/projects/${student.projectId}/workflow`,"POST",{action:"SET_ELIGIBILITY",examType,decision},`${student.id}-${examType}`,"Keputusan ujian berhasil disimpan."))setStudentRecords(list=>list.map(x=>x.id===student.id?{...x,[examType==="PROPOSAL"?"proposalEligibility":"resultEligibility"]:decision}:x))}
+  async function completeAndArchive(student:DashboardStudent){if(!student.projectId||!window.confirm(`Tandai ${student.name} selesai dan pindahkan ke arsip?`))return;if(await requestJson(`/api/projects/${student.projectId}/workflow`,"POST",{action:"COMPLETE_AND_ARCHIVE"},`${student.id}-complete`,`${student.name} masuk arsip.`))setStudentRecords(list=>list.map(x=>x.id===student.id?{...x,status:"COMPLETED",stage:"Selesai",progress:100,archivedAt:new Date().toISOString()}:x))}
+  async function purgeStudent(student:DashboardStudent){const confirmation=window.prompt(`Penghapusan permanen. Ketik tepat: HAPUS ${student.nim}`);if(confirmation===null)return;if(await requestJson(`/api/admin/students/${student.id}/purge`,"DELETE",{confirmation},`${student.id}-purge`,`Data akademik ${student.name} berhasil dihapus.`))setStudentRecords(list=>list.filter(x=>x.id!==student.id))}
+  async function reviewTitle(item:DashboardTitle,decision:"APPROVED"|"REVISION"|"REJECTED"){const reason=reviewNotes[item.id]?.trim();if(!reason)return setToast("Isi catatan keputusan terlebih dahulu.");await requestJson("/api/titles","PATCH",{id:item.id,decision,reason},`title-${item.id}`,"Keputusan judul berhasil disimpan.")}
+  async function verifyLogbook(id:string,verified:boolean){await requestJson("/api/logbook","PATCH",{id,verified},`log-${id}`,verified?"Catatan berhasil diverifikasi.":"Verifikasi catatan dibatalkan.")}
+  async function createSlot(event:FormEvent){event.preventDefault();if(await requestJson("/api/bookings","POST",{action:"CREATE_SLOT",startsAt:new Date(slotForm.startsAt).toISOString(),endsAt:new Date(slotForm.endsAt).toISOString(),method:slotForm.method,locationOrUrl:slotForm.locationOrUrl,quota:slotForm.quota},"slot","Slot bimbingan berhasil dibuka."))setSlotForm({startsAt:"",endsAt:"",method:"Tatap muka",locationOrUrl:"",quota:1})}
+  async function createPeriod(event:FormEvent){event.preventDefault();if(await requestJson("/api/admin/periods","POST",{action:"CREATE",...periodForm},"period","Periode akademik berhasil dibuat."))setPeriodForm({name:"",semester:1,academicYear:"",startsOn:"",endsOn:""})}
+  async function periodAction(id:string,action:"ACTIVATE"|"LOCK",locked?:boolean){await requestJson("/api/admin/periods","POST",action==="LOCK"?{action,id,locked}:{action,id},`period-${id}`,"Periode akademik berhasil diperbarui.")}
+  const choose=(label:string)=>{setActive(label);setMobile(false);setSearch("")};
 
-const adminNav = [
-  ["Ringkasan", LayoutDashboard], ["Mahasiswa", UsersRound], ["Bimbingan Masuk", MessageSquareText],
-  ["Dokumen", FileText], ["AI Review Center", Bot], ["Jadwal", CalendarDays], ["Arsip Bimbingan", Archive],
-] as const;
-const lecturerNav = [
-  ["Ringkasan", LayoutDashboard], ["Mahasiswa Bimbingan", UsersRound], ["Bimbingan Masuk", MessageSquareText],
-  ["Dokumen", FileText], ["Jadwal", CalendarDays], ["Arsip Bimbingan", Archive],
-] as const;
+  return <div className="app-shell admin-shell"><aside className={mobile?"sidebar open":"sidebar"}><div className="side-brand"><span><GraduationCap/></span><div>Bimbingan <b>Andaz</b><small>{viewerRole==="ADMIN"?"PANEL ADMIN":"PANEL DOSEN"}</small></div><button aria-label="Tutup menu" onClick={()=>setMobile(false)}><X/></button></div><nav>{nav.map(([label,Icon])=><button key={label} className={active===label?"active":""} onClick={()=>choose(label)}><Icon/>{label}{label==="Antrian & Bimbingan"&&incomingCount>0&&<em>{incomingCount}</em>}</button>)}</nav><div className="side-bottom"><button onClick={()=>choose("Pusat Bantuan")}><CircleHelp/> Pusat Bantuan</button><button onClick={()=>choose("Pengaturan")}><Settings/> Pengaturan</button><button onClick={logout}><LogOut/> Keluar</button><div className="profile-mini"><span>{initials}</span><p><b>{viewerName}</b><small>{viewerRole==="ADMIN"?"Administrator":"Dosen"}</small></p><ChevronDown/></div></div></aside>{mobile&&<button className="scrim" aria-label="Tutup menu" onClick={()=>setMobile(false)}/>}<main className="dashboard-main"><header className="topbar"><button className="mobile-menu" aria-label="Buka menu" onClick={()=>setMobile(true)}><Menu/></button><div className="search"><Search/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari mahasiswa atau NIM…"/></div><button className="term">{period}<ChevronDown/></button><button className="bell" aria-label="Notifikasi"><Bell/></button></header><div className="content"><div className="welcome"><div><span>{new Intl.DateTimeFormat("id-ID",{dateStyle:"long"}).format(new Date())}</span><h1>{active}</h1><p>{viewerRole==="ADMIN"?"Kelola layanan akademik dan akun mahasiswa.":"Kelola mahasiswa yang ditugaskan kepada Anda."}</p></div><button className="button primary" onClick={()=>choose("Antrian & Bimbingan")}><MessageSquareText/> Buka konsultasi</button></div>
 
-const statusLabel = (status: string) => ({ ACTIVE: "Aktif", PENDING: "Menunggu", DISABLED: "Nonaktif", REJECTED: "Ditolak", COMPLETED: "Selesai", SUBMITTED: "Dikirim", IN_REVIEW: "Ditinjau", REVISION: "Revisi", APPROVED: "Disetujui", DONE: "Selesai", FAILED: "Gagal" } as Record<string, string>)[status] || status;
-const statusTone = (status: string) => status === "ACTIVE" || status === "APPROVED" || status === "COMPLETED" ? "green" : status === "PENDING" || status === "SUBMITTED" ? "yellow" : status === "REJECTED" || status === "FAILED" ? "red" : "orange";
-const formatDate = (value: string) => new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
-const formatSize = (bytes: number) => bytes < 1024 * 1024 ? `${Math.ceil(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  {active==="Ringkasan"&&<><section className="metric-grid"><Metric icon={<UsersRound/>} label="Mahasiswa aktif" value={activeStudents} note={`${studentRecords.length} akun terlihat`}/><Metric icon={<MessageSquareText/>} label="Bimbingan masuk" value={incomingCount} note="Menunggu balasan"/><Metric icon={<FileText/>} label="Dokumen" value={documents.length} note="Versi tersimpan"/><Metric icon={<Clock3/>} label="Perlu tindak lanjut" value={followup} note="Lebih dari 14 hari"/></section><Panel title="Aktivitas terbaru" subtitle="Data langsung dari Neon">{consultations.slice(0,5).map(c=><button className="static-record" key={c.id} onClick={()=>choose("Antrian & Bimbingan")}><MessageSquareText/><span><b>{c.studentName}</b><small>{c.subject}</small></span><i className={`status ${statusTone(c.status)}`}>{statusLabel(c.status)}</i></button>)}</Panel></>}
 
-export default function Dashboard({ viewerName, viewerRole, period, students, consultations, documents, appointments, reviews, aiSettings, currentTime }: Props) {
-  const router = useRouter();
-  const nav = viewerRole === "ADMIN" ? adminNav : lecturerNav;
-  const [studentRecords, setStudentRecords] = useState(students);
-  const [active, setActive] = useState("Ringkasan");
-  const [search, setSearch] = useState("");
-  const [mobile, setMobile] = useState(false);
-  const [toast, setToast] = useState("");
-  const [busy, setBusy] = useState("");
-  const [reply, setReply] = useState<Record<string, string>>({});
-  const [aiDocument, setAiDocument] = useState(documents.find(item => item.canAiReview)?.id || "");
-  const [aiMode, setAiMode] = useState("QUICK");
-  const [aiItems, setAiItems] = useState<Array<{ category: string; severity: string; finding: string; suggestion: string }>>([]);
-  const [aiConfig, setAiConfig] = useState(aiSettings);
-  const filtered = useMemo(() => studentRecords.filter(s => `${s.name} ${s.nim} ${s.program}`.toLowerCase().includes(search.toLowerCase())), [search, studentRecords]);
-  const activeStudents = studentRecords.filter(s => s.status === "ACTIVE").length;
-  const incomingCount = consultations.filter(c => c.status === "SUBMITTED" || c.status === "WAITING_REVIEW").length;
-  const referenceTime = new Date(currentTime).getTime();
-  const followup = studentRecords.filter(s => referenceTime - new Date(s.updatedAt).getTime() > 14 * 86_400_000).length;
-  const initials = viewerName.split(" ").map(x => x[0]).join("").slice(0, 2).toUpperCase();
-  const archivedStudents = studentRecords.filter(student => student.status === "COMPLETED" || Boolean(student.archivedAt));
+  {(active==="Mahasiswa"||search)&&<><section className="panel student-panel"><header><div><h2>{viewerRole==="ADMIN"?"Semua mahasiswa":"Mahasiswa bimbingan"}</h2><p>{filtered.length} mahasiswa ditemukan</p></div></header>{filtered.length===0?<Empty text="Belum ada mahasiswa pada daftar ini."/>:<div className="student-table"><div className="table-head"><span>Mahasiswa</span><span>Program</span><span>Tahap</span><span>Konsultasi</span><span>Status</span><span>Terakhir</span></div>{filtered.map((student,i)=><div className="student-row" key={student.id}><span className="student-name"><i className={`student-avatar a${i%5}`}>{student.name.split(" ").map(x=>x[0]).join("").slice(0,2)}</i><p><b>{student.name}</b><small>{student.nim}</small></p></span><span>{student.program}</span><span className="stage-cell"><b>{student.stage}</b><i><em style={{width:`${student.progress}%`}}/></i><small>{student.progress}%</small></span><span className="consultation-summary"><b>{student.consultationCount} kali</b><small>{student.consultationTopics.slice(0,2).join(" · ")||"Belum ada topik"}</small></span><span className="approval-cell"><i className={`status ${statusTone(student.status)}`}>{statusLabel(student.status)}</i>{viewerRole==="ADMIN"&&student.status==="PENDING"&&<span className="approval-actions"><button disabled={busy===student.id} onClick={()=>updateStudentStatus(student,"ACTIVE")}>Setujui</button><button className="reject" disabled={busy===student.id} onClick={()=>updateStudentStatus(student,"REJECTED")}>Tolak</button></span>}</span><span>{formatDate(student.updatedAt)}</span></div>)}</div>}</section><section className="panel decision-panel"><header><div><h2>Keputusan kelayakan ujian</h2><p>Tetapkan kelayakan proposal dan hasil.</p></div></header><div className="decision-grid">{filtered.filter(s=>s.status==="ACTIVE"&&s.projectId).map(student=><article key={student.id}><div className="decision-student"><ClipboardList/><span><b>{student.name}</b><small>{student.nim} · {student.consultationCount} konsultasi</small></span></div><ExamDecision label="Ujian proposal" value={student.proposalEligibility} busy={busy===`${student.id}-PROPOSAL`} onChange={v=>setEligibility(student,"PROPOSAL",v)}/><ExamDecision label="Ujian hasil" value={student.resultEligibility} busy={busy===`${student.id}-RESULT`} onChange={v=>setEligibility(student,"RESULT",v)}/>{viewerRole==="ADMIN"&&<button className="complete-button" disabled={busy===`${student.id}-complete`||student.resultEligibility!=="ELIGIBLE"} onClick={()=>completeAndArchive(student)}><CheckCircle2/> Selesai & arsipkan</button>}</article>)}</div></section></>}
 
-  async function logout() { await authClient.signOut(); router.replace("/"); router.refresh(); }
-  async function updateStudentStatus(student: DashboardStudent, status: "ACTIVE" | "REJECTED") {
-    if (status === "REJECTED" && !window.confirm(`Tolak registrasi ${student.name}?`)) return;
-    setBusy(student.id);
-    const response = await fetch(`/api/admin/students/${student.id}/status`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
-    const result = await response.json().catch(() => ({}));
-    setBusy("");
-    if (!response.ok) return setToast(result.error || "Status gagal diperbarui.");
-    setStudentRecords(list => list.map(item => item.id === student.id ? { ...item, status } : item));
-    setToast(status === "ACTIVE" ? `${student.name} berhasil diaktifkan.` : `${student.name} ditolak.`);
-    router.refresh();
-  }
-  async function sendReply(event: FormEvent, threadId: string) {
-    event.preventDefault();
-    const message = reply[threadId]?.trim();
-    if (!message) return;
-    setBusy(threadId);
-    const response = await fetch(`/api/consultations/${threadId}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }) });
-    const result = await response.json().catch(() => ({}));
-    setBusy("");
-    if (!response.ok) return setToast(result.error || "Balasan gagal dikirim.");
-    setReply(value => ({ ...value, [threadId]: "" }));
-    setToast("Balasan berhasil dikirim.");
-    router.refresh();
-  }
-  async function runAiReview() {
-    if (!aiDocument) return setToast("Pilih dokumen .docx terlebih dahulu.");
-    setBusy("ai"); setAiItems([]);
-    const response = await fetch("/api/ai/review", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ documentVersionId: aiDocument, mode: aiMode }) });
-    const result = await response.json().catch(() => ({}));
-    setBusy("");
-    if (!response.ok) return setToast(result.error || "AI Review gagal dijalankan.");
-    setAiItems(result.items || []); setToast("AI Review selesai dan hasil telah disimpan."); router.refresh();
-  }
+  {active==="Antrian & Bimbingan"&&<section className="module-grid">{consultations.map(c=><article className="panel conversation" key={c.id}><header><div><h2>{c.subject}</h2><p>{c.studentName} · {statusLabel(c.status)}</p></div></header><div className="messages">{c.messages.map(m=><div className={m.senderRole===viewerRole?"mine":""} key={m.id}><b>{m.senderName}</b><p>{m.body}</p><small>{formatDate(m.createdAt)}</small></div>)}</div><form className="reply-form" onSubmit={e=>sendReply(e,c.id)}><input value={reply[c.id]||""} onChange={e=>setReply(v=>({...v,[c.id]:e.target.value}))} placeholder="Tulis balasan…"/><button aria-label="Kirim balasan" disabled={busy===c.id}><Send/></button></form></article>)}{consultations.length===0&&<section className="panel"><Empty text="Belum ada konsultasi masuk."/></section>}</section>}
+  {active==="Dokumen"&&<Panel title="Dokumen mahasiswa" subtitle={`${documents.length} versi tersedia`}>{documents.map(d=><div className="static-record" key={d.id}><FileText/><span><b>{d.name}</b><small>{d.studentName} · {d.category} · Versi {d.version} · {formatSize(d.sizeBytes)}</small></span><i className={`status ${statusTone(d.status)}`}>{statusLabel(d.status)}</i><a className="icon-action" href={`/api/documents/${d.id}/download`} aria-label={`Unduh ${d.name}`}><Download/></a></div>)}</Panel>}
 
-  async function setEligibility(student: DashboardStudent, examType: "PROPOSAL" | "RESULT", decision: "NOT_YET" | "ELIGIBLE") {
-    if (!student.projectId) return setToast("Proyek mahasiswa belum tersedia.");
-    setBusy(`${student.id}-${examType}`);
-    const response = await fetch(`/api/projects/${student.projectId}/workflow`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "SET_ELIGIBILITY", examType, decision }),
-    });
-    const result = await response.json().catch(() => ({}));
-    setBusy("");
-    if (!response.ok) return setToast(result.error || "Keputusan ujian gagal disimpan.");
-    setStudentRecords(list => list.map(item => item.id === student.id ? {
-      ...item, [examType === "PROPOSAL" ? "proposalEligibility" : "resultEligibility"]: decision,
-    } : item));
-    setToast(`${examType === "PROPOSAL" ? "Ujian proposal" : "Ujian hasil"}: ${decision === "ELIGIBLE" ? "layak" : "belum layak"}.`);
-    router.refresh();
-  }
+  {active==="Pengajuan Judul"&&<Panel title="Review pengajuan judul" subtitle={`${titles.filter(t=>t.decision==="PENDING").length} menunggu keputusan`}>{titles.map(item=><article className="review-record" key={item.id}><div><b>{item.studentName} · Usulan {item.sequence}</b><h3>{item.title}</h3><p><strong>Rumusan:</strong> {item.researchProblem}</p><p><strong>Tujuan:</strong> {item.objective}</p><small>{formatDate(item.createdAt)}</small></div><aside><i className={`status ${statusTone(item.decision)}`}>{statusLabel(item.decision)}</i>{item.decision==="PENDING"&&<><textarea aria-label={`Catatan untuk ${item.title}`} value={reviewNotes[item.id]||""} onChange={e=>setReviewNotes(v=>({...v,[item.id]:e.target.value}))} placeholder="Catatan keputusan"/><div><button disabled={busy===`title-${item.id}`} onClick={()=>reviewTitle(item,"APPROVED")}>Setujui</button><button disabled={busy===`title-${item.id}`} onClick={()=>reviewTitle(item,"REVISION")}>Revisi</button><button className="reject" disabled={busy===`title-${item.id}`} onClick={()=>reviewTitle(item,"REJECTED")}>Tolak</button></div></>}</aside></article>)}</Panel>}
 
-  async function completeAndArchive(student: DashboardStudent) {
-    if (!student.projectId) return setToast("Proyek mahasiswa belum tersedia.");
-    if (!window.confirm(`Tandai ${student.name} selesai dan pindahkan ke arsip?`)) return;
-    setBusy(`${student.id}-complete`);
-    const response = await fetch(`/api/projects/${student.projectId}/workflow`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "COMPLETE_AND_ARCHIVE" }),
-    });
-    const result = await response.json().catch(() => ({}));
-    setBusy("");
-    if (!response.ok) return setToast(result.error || "Mahasiswa belum dapat diarsipkan.");
-    setStudentRecords(list => list.map(item => item.id === student.id ? {
-      ...item, status: "COMPLETED", stage: "Selesai", progress: 100, archivedAt: new Date().toISOString(),
-    } : item));
-    setToast(`${student.name} telah selesai dan masuk arsip.`);
-    router.refresh();
-  }
+  {active==="Catatan Bimbingan"&&<Panel title="Verifikasi catatan bimbingan" subtitle={`${logbook.filter(x=>!x.isVerified).length} menunggu verifikasi`}>{logbook.map(item=><article className="detail-record" key={item.id}><div><b>{item.studentName} · {item.topic}</b><small>{item.entryDate} · {item.meetingType}</small><p>{item.summary}</p>{item.feedbackReceived&&<p><strong>Masukan:</strong> {item.feedbackReceived}</p>}</div><button className={`button ${item.isVerified?"secondary":"primary"}`} disabled={busy===`log-${item.id}`} onClick={()=>verifyLogbook(item.id,!item.isVerified)}>{item.isVerified?"Batalkan verifikasi":"Verifikasi"}</button></article>)}</Panel>}
 
-  async function purgeStudent(student: DashboardStudent) {
-    const confirmation = window.prompt(`Penghapusan ini permanen untuk dokumen, konsultasi, jadwal, dan proyek.\nKetik tepat: HAPUS ${student.nim}`);
-    if (confirmation === null) return;
-    setBusy(`${student.id}-purge`);
-    const response = await fetch(`/api/admin/students/${student.id}/purge`, {
-      method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmation }),
-    });
-    const result = await response.json().catch(() => ({}));
-    setBusy("");
-    if (!response.ok) return setToast(result.error || "Data mahasiswa gagal dihapus.");
-    setStudentRecords(list => list.filter(item => item.id !== student.id));
-    setToast(`Data akademik ${student.name} berhasil dihapus.`);
-    router.refresh();
-  }
+  {active==="Slot Bimbingan"&&<><section className="panel upload-panel"><header><div><h2>Buka slot bimbingan</h2><p>Mahasiswa dapat langsung memesan selama kuota tersedia.</p></div></header><form onSubmit={createSlot}><label>Mulai<input type="datetime-local" value={slotForm.startsAt} onChange={e=>setSlotForm(v=>({...v,startsAt:e.target.value}))} required/></label><label>Selesai<input type="datetime-local" value={slotForm.endsAt} onChange={e=>setSlotForm(v=>({...v,endsAt:e.target.value}))} required/></label><label>Metode<select value={slotForm.method} onChange={e=>setSlotForm(v=>({...v,method:e.target.value}))}><option>Tatap muka</option><option>Google Meet/Zoom</option><option>WhatsApp</option></select></label><label>Lokasi atau tautan<input value={slotForm.locationOrUrl} onChange={e=>setSlotForm(v=>({...v,locationOrUrl:e.target.value}))}/></label><label>Kuota<input type="number" min={1} max={20} value={slotForm.quota} onChange={e=>setSlotForm(v=>({...v,quota:Number(e.target.value)}))}/></label><button className="button primary" disabled={busy==="slot"}><CalendarPlus/>{busy==="slot"?"Menyimpan…":"Buka slot"}</button></form></section><Panel title="Daftar slot" subtitle={`${bookingSlots.length} slot`}>{bookingSlots.map(s=><div className="static-record" key={s.id}><CalendarDays/><span><b>{formatDate(s.startsAt)}</b><small>{s.method} · {s.booked}/{s.quota} terisi · {s.locationOrUrl||"Lokasi belum diisi"}</small></span></div>)}</Panel></>}
+  {active==="Jadwal"&&<Panel title="Jadwal bimbingan" subtitle="Agenda yang telah dibuat">{appointments.map(a=><div className="static-record" key={a.id}><CalendarDays/><span><b>{a.topic}</b><small>{a.studentName} · {formatDate(a.startsAt)} · {a.method}</small></span><i className={`status ${statusTone(a.decision)}`}>{statusLabel(a.decision)}</i></div>)}</Panel>}
 
-  async function saveAiSettings(event: FormEvent) {
-    event.preventDefault(); setBusy("ai-settings");
-    const response = await fetch("/api/admin/ai-settings", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(aiConfig),
-    });
-    const result = await response.json().catch(() => ({}));
-    setBusy("");
-    if (!response.ok) return setToast(result.error || "Konfigurasi AI gagal disimpan.");
-    setAiConfig(value => ({ ...value, apiConfigured: Boolean(result.apiConfigured) }));
-    setToast("Konfigurasi AI Review berhasil disimpan.");
-    router.refresh();
-  }
-
-  const choose = (label: string) => { setActive(label); setMobile(false); setSearch(""); };
-  return <div className="app-shell admin-shell">
-    <aside className={mobile ? "sidebar open" : "sidebar"}>
-      <div className="side-brand"><span><GraduationCap/></span><div>Bimbing<b>AI</b><small>{viewerRole === "ADMIN" ? "PANEL ADMIN" : "PANEL DOSEN"}</small></div><button aria-label="Tutup menu" onClick={() => setMobile(false)}><X/></button></div>
-      <nav>{nav.map(([label, Icon]) => <button key={label} className={active === label ? "active" : ""} onClick={() => choose(label)}><Icon/>{label}{label === "Bimbingan Masuk" && incomingCount > 0 && <em>{incomingCount}</em>}</button>)}</nav>
-      <div className="side-bottom"><button onClick={() => choose("Pusat Bantuan")}><CircleHelp/> Pusat Bantuan</button><button onClick={() => choose("Pengaturan")}><Settings/> Pengaturan</button><button onClick={logout}><LogOut/> Keluar</button><div className="profile-mini"><span>{initials}</span><p><b>{viewerName}</b><small>{viewerRole === "ADMIN" ? "Administrator" : "Dosen"}</small></p><ChevronDown/></div></div>
-    </aside>
-    {mobile && <button className="scrim" aria-label="Tutup menu" onClick={() => setMobile(false)}/>}
-    <main className="dashboard-main">
-      <header className="topbar"><button className="mobile-menu" onClick={() => setMobile(true)}><Menu/></button><div className="search"><Search/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari mahasiswa atau NIM…"/></div><button className="term">{period} <ChevronDown/></button><button className="bell"><Bell/></button></header>
-      <div className="content">
-        <div className="welcome"><div><span>{new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(new Date())}</span><h1>{active}</h1><p>{viewerRole === "ADMIN" ? "Kelola layanan akademik dan akun mahasiswa." : "Kelola mahasiswa yang ditugaskan kepada Anda."}</p></div><button className="button primary" onClick={() => setActive("Bimbingan Masuk")}><MessageSquareText/> Buka konsultasi</button></div>
-
-        {active === "Ringkasan" && <><section className="metric-grid">
-          <article><span className="metric-icon blue"><UsersRound/></span><div><small>Mahasiswa aktif</small><b>{activeStudents}</b><p>{studentRecords.length} akun terlihat</p></div></article>
-          <article><span className="metric-icon cyan"><MessageSquareText/></span><div><small>Bimbingan masuk</small><b>{incomingCount}</b><p>Menunggu balasan</p></div></article>
-          <article><span className="metric-icon violet"><FileText/></span><div><small>Dokumen</small><b>{documents.length}</b><p>Versi tersimpan</p></div></article>
-          <article><span className="metric-icon amber"><Clock3/></span><div><small>Perlu tindak lanjut</small><b>{followup}</b><p>Lebih dari 14 hari</p></div></article>
-        </section><section className="panel module-panel"><header><div><h2>Aktivitas terbaru</h2><p>Data langsung dari Neon</p></div></header><div className="record-list">{consultations.slice(0, 5).map(c => <button key={c.id} onClick={() => setActive("Bimbingan Masuk")}><MessageSquareText/><span><b>{c.studentName}</b><small>{c.subject}</small></span><i className={`status ${statusTone(c.status)}`}>{statusLabel(c.status)}</i></button>)}{consultations.length === 0 && <Empty text="Belum ada konsultasi masuk."/>}</div></section></>}
-
-        {(active === "Mahasiswa" || active === "Mahasiswa Bimbingan" || search) && <>
-          <section className="panel student-panel">
-            <header><div><h2>{viewerRole === "ADMIN" ? "Semua mahasiswa" : "Mahasiswa bimbingan"}</h2><p>{filtered.length} mahasiswa ditemukan</p></div></header>
-            {filtered.length === 0 ? <Empty text="Belum ada mahasiswa pada daftar ini."/> : <div className="student-table">
-              <div className="table-head"><span>Mahasiswa</span><span>Program</span><span>Tahap</span><span>Konsultasi</span><span>Status</span><span>Terakhir</span></div>
-              {filtered.map((student, i) => <div className="student-row" key={student.id}>
-                <span className="student-name"><i className={`student-avatar a${i % 5}`}>{student.name.split(" ").map(x => x[0]).join("").slice(0,2)}</i><p><b>{student.name}</b><small>{student.nim}</small></p></span>
-                <span>{student.program}</span>
-                <span className="stage-cell"><b>{student.stage}</b><i><em style={{width:`${student.progress}%`}}/></i><small>{student.progress}%</small></span>
-                <span className="consultation-summary"><b>{student.consultationCount} kali</b><small title={student.consultationTopics.join(" · ")}>{student.consultationTopics.slice(0,2).join(" · ") || "Belum ada topik"}</small></span>
-                <span className="approval-cell"><i className={`status ${statusTone(student.status)}`}>{statusLabel(student.status)}</i>{viewerRole === "ADMIN" && student.status === "PENDING" && <span className="approval-actions"><button disabled={busy===student.id} onClick={() => updateStudentStatus(student,"ACTIVE")}>Setujui</button><button className="reject" disabled={busy===student.id} onClick={() => updateStudentStatus(student,"REJECTED")}>Tolak</button></span>}</span>
-                <span>{formatDate(student.updatedAt)}</span>
-              </div>)}
-            </div>}
-          </section>
-          <section className="panel decision-panel">
-            <header><div><h2>Keputusan kelayakan ujian</h2><p>Dosen dapat menandai kelayakan proposal dan hasil berdasarkan proses bimbingan.</p></div></header>
-            <div className="decision-grid">{filtered.filter(student => student.status === "ACTIVE" && student.projectId).map(student => <article key={student.id}>
-              <div className="decision-student"><ClipboardList/><span><b>{student.name}</b><small>{student.nim} · {student.consultationCount} konsultasi</small></span></div>
-              <ExamDecision label="Ujian proposal" value={student.proposalEligibility} busy={busy===`${student.id}-PROPOSAL`} onChange={decision=>setEligibility(student,"PROPOSAL",decision)}/>
-              <ExamDecision label="Ujian hasil" value={student.resultEligibility} busy={busy===`${student.id}-RESULT`} onChange={decision=>setEligibility(student,"RESULT",decision)}/>
-              {viewerRole === "ADMIN" && <button className="complete-button" disabled={busy===`${student.id}-complete` || student.resultEligibility!=="ELIGIBLE"} onClick={()=>completeAndArchive(student)}><CheckCircle2/> Selesai & arsipkan</button>}
-            </article>)}</div>
-          </section>
-        </>}
-
-        {active === "Bimbingan Masuk" && <section className="module-grid">{consultations.map(c => <article className="panel conversation" key={c.id}><header><div><h2>{c.subject}</h2><p>{c.studentName} · {statusLabel(c.status)}</p></div></header><div className="messages">{c.messages.map(m => <div className={m.senderRole === viewerRole ? "mine" : ""} key={m.id}><b>{m.senderName}</b><p>{m.body}</p><small>{formatDate(m.createdAt)}</small></div>)}</div><form className="reply-form" onSubmit={e => sendReply(e,c.id)}><input value={reply[c.id] || ""} onChange={e => setReply(v => ({...v,[c.id]:e.target.value}))} placeholder="Tulis balasan…"/><button disabled={busy===c.id}><Send/></button></form></article>)}{consultations.length===0 && <section className="panel"><Empty text="Belum ada konsultasi dari mahasiswa."/></section>}</section>}
-
-        {active === "Dokumen" && <section className="panel module-panel"><header><div><h2>Dokumen mahasiswa</h2><p>{documents.length} versi dokumen tersedia</p></div></header><div className="document-list">{documents.map(d => <div key={d.id}><FileText/><span><b>{d.name}</b><small>{d.studentName} · {d.category} · Versi {d.version} · {formatSize(d.sizeBytes)}</small></span><i className={`status ${statusTone(d.status)}`}>{statusLabel(d.status)}</i><a className="icon-action" href={`/api/documents/${d.id}/download`} title="Unduh"><Download/></a></div>)}{documents.length===0 && <Empty text="Belum ada dokumen yang diunggah."/>}</div></section>}
-
-        {active === "AI Review Center" && viewerRole === "ADMIN" && <>
-          <section className="panel ai-console"><header><div><h2>AI Review privat</h2><p>Hanya administrator yang dapat menjalankan dan melihat hasil awal.</p>{aiConfig.providerIssue&&<small className="provider-warning">{aiConfig.providerIssue}</small>}</div><i className={`status ${aiConfig.enabled&&aiConfig.apiConfigured&&!aiConfig.providerIssue?"green":"red"}`}>{aiConfig.enabled&&aiConfig.apiConfigured&&!aiConfig.providerIssue?"Siap digunakan":aiConfig.providerIssue?"Butuh aktivasi provider":"Perlu konfigurasi"}</i></header><div className="ai-controls"><label>Dokumen<select value={aiDocument} onChange={e => setAiDocument(e.target.value)}><option value="">Pilih dokumen .docx</option>{documents.filter(d=>d.canAiReview).map(d=><option value={d.id} key={d.id}>{d.studentName} — {d.name}</option>)}</select></label><label>Mode<select value={aiMode} onChange={e=>setAiMode(e.target.value)}><option value="QUICK">Pemeriksaan cepat</option><option value="LANGUAGE">Bahasa akademik</option><option value="FULL">Review lengkap</option><option value="EXAMINER">Pertanyaan penguji</option></select></label><button className="button primary" disabled={busy==="ai" || !aiDocument || !aiConfig.enabled || !aiConfig.apiConfigured} onClick={runAiReview}><Sparkles/> {busy==="ai" ? "Sedang meninjau…" : "Jalankan AI Review"}</button></div></section>
-          <section className="panel ai-settings-panel"><header><div><h2>Konfigurasi AI Review</h2><p>Akses AI dikelola aman oleh server melalui identitas Vercel atau kunci privat.</p></div><SlidersHorizontal/></header><form onSubmit={saveAiSettings}><label className="toggle-setting"><input type="checkbox" checked={aiConfig.enabled} onChange={e=>setAiConfig(v=>({...v,enabled:e.target.checked}))}/><span><b>Aktifkan AI Review</b><small>{aiConfig.providerIssue?"Provider AI memerlukan aktivasi di Vercel.":aiConfig.apiConfigured?"Layanan AI siap digunakan.":"Layanan AI belum dikonfigurasi di server."}</small></span></label><div className="ai-setting-row"><label>Model<input value={aiConfig.modelName} onChange={e=>setAiConfig(v=>({...v,modelName:e.target.value}))} required/></label><label>Maksimal temuan<input type="number" min="1" max="30" value={aiConfig.maxFindings} onChange={e=>setAiConfig(v=>({...v,maxFindings:Number(e.target.value)}))} required/></label></div><label>Instruksi review<textarea minLength={20} maxLength={5000} value={aiConfig.customInstructions} onChange={e=>setAiConfig(v=>({...v,customInstructions:e.target.value}))} required/></label><button className="button primary" disabled={busy==="ai-settings"}><Settings/>{busy==="ai-settings"?"Menyimpan…":"Simpan konfigurasi"}</button></form></section>
-          {aiItems.length>0 && <section className="panel result-list"><header><div><h2>Hasil review terbaru</h2><p>Periksa kembali sebelum dibagikan kepada mahasiswa.</p></div></header>{aiItems.map((item,i)=><article key={i}><i className={`status ${item.severity==="MAJOR"?"red":item.severity==="LANGUAGE"?"yellow":"orange"}`}>{item.severity}</i><div><b>{item.category}</b><p>{item.finding}</p><small>Saran: {item.suggestion}</small></div></article>)}</section>}
-          <section className="panel module-panel"><header><div><h2>Riwayat AI Review</h2><p>Hasil yang tersimpan</p></div></header><div className="record-list">{reviews.map(r=><div className="static-record" key={r.id}><Bot/><span><b>{r.documentName}</b><small>{r.studentName} · {r.mode} · {r.itemCount} temuan</small></span><i className={`status ${statusTone(r.status)}`}>{statusLabel(r.status)}</i></div>)}{reviews.length===0&&<Empty text="Belum ada AI Review."/>}</div></section>
-        </>}
-
-        {active === "Jadwal" && <section className="panel module-panel"><header><div><h2>Jadwal bimbingan</h2><p>Agenda yang telah dibuat</p></div></header><div className="record-list">{appointments.map(a=><div className="static-record" key={a.id}><CalendarDays/><span><b>{a.topic}</b><small>{a.studentName} · {formatDate(a.startsAt)} · {a.method}</small></span><i className={`status ${statusTone(a.decision)}`}>{statusLabel(a.decision)}</i></div>)}{appointments.length===0&&<Empty text="Belum ada jadwal bimbingan."/>}</div></section>}
-        {active === "Arsip Bimbingan" && <section className="panel archive-panel"><header><div><h2>Mahasiswa selesai</h2><p>{archivedStudents.length} mahasiswa tersimpan dalam arsip.</p></div></header>{archivedStudents.length===0?<Empty text="Belum ada proyek atau bimbingan yang diarsipkan."/>:<div className="archive-grid">{archivedStudents.map(student=><article key={student.id}><Archive/><div><b>{student.name}</b><small>{student.nim} · {student.program} · {student.consultationCount} konsultasi</small><p>{student.consultationTopics.join(" · ") || "Tidak ada topik konsultasi"}</p></div>{viewerRole==="ADMIN"&&<button className="danger-button" disabled={busy===`${student.id}-purge`} onClick={()=>purgeStudent(student)}><Trash2/>{busy===`${student.id}-purge`?"Menghapus…":"Hapus data"}</button>}</article>)}</div>}</section>}
-        {active === "Pusat Bantuan" && <section className="panel help-panel"><header><div><h2>Panduan singkat</h2><p>Cara menggunakan panel {viewerRole === "ADMIN" ? "administrator" : "dosen"}.</p></div></header><div className="help-grid"><article><UsersRound/><b>Kelola mahasiswa</b><p>Buka Mahasiswa untuk melihat status akun dan menyetujui pendaftar baru.</p></article><article><MessageSquareText/><b>Balas konsultasi</b><p>Buka Bimbingan Masuk, pilih percakapan, lalu tulis balasan.</p></article><article><FileText/><b>Periksa dokumen</b><p>Dokumen mahasiswa dapat dilihat dan diunduh dari menu Dokumen.</p></article>{viewerRole === "ADMIN" && <article><Bot/><b>Gunakan AI Review</b><p>Pilih berkas .docx, tentukan mode, lalu periksa kembali hasil AI sebelum digunakan.</p></article>}</div></section>}
-        {active === "Pengaturan" && <section className="panel profile-card"><header><div><h2>Pengaturan akun</h2><p>Identitas dan keamanan akun yang sedang digunakan.</p></div></header><dl><div><dt>Nama pengguna</dt><dd>{viewerName}</dd></div><div><dt>Peran</dt><dd>{viewerRole === "ADMIN" ? "Administrator" : "Dosen"}</dd></div><div><dt>Status</dt><dd><i className="status green">Aktif</i></dd></div><div><dt>Keamanan</dt><dd>Login dan sesi dikelola oleh Neon Auth.</dd></div></dl></section>}
-      </div>
-    </main>
-    {toast && <div className="toast" role="status"><UserRoundCheck/><span>{toast}</span><button onClick={()=>setToast("")}><X/></button></div>}
-  </div>;
+  {active==="Statistik"&&<><section className="metric-grid"><Metric icon={<UsersRound/>} label="Total mahasiswa" value={studentRecords.length} note={`${activeStudents} aktif`}/><Metric icon={<MessageSquareText/>} label="Total konsultasi" value={consultations.length} note={`${incomingCount} menunggu`}/><Metric icon={<FileText/>} label="Versi dokumen" value={documents.length} note="Tersimpan"/><Metric icon={<CheckCircle2/>} label="Selesai" value={archivedStudents.length} note="Dalam arsip"/></section><section className="panel stats-bars"><header><div><h2>Progres mahasiswa</h2><p>Distribusi progres saat ini</p></div></header>{studentRecords.filter(s=>s.status==="ACTIVE").map(s=><article key={s.id}><span>{s.name}</span><div><i style={{width:`${s.progress}%`}}/></div><b>{s.progress}%</b></article>)}</section></>}
+  {active==="Periode Akademik"&&viewerRole==="ADMIN"&&<><section className="panel upload-panel"><header><div><h2>Tambah periode akademik</h2></div></header><form onSubmit={createPeriod}><label>Nama periode<input value={periodForm.name} onChange={e=>setPeriodForm(v=>({...v,name:e.target.value}))} placeholder="Semester Ganjil 2026/2027" required/></label><label>Semester<select value={periodForm.semester} onChange={e=>setPeriodForm(v=>({...v,semester:Number(e.target.value)}))}><option value={1}>Ganjil</option><option value={2}>Genap</option></select></label><label>Tahun akademik<input value={periodForm.academicYear} onChange={e=>setPeriodForm(v=>({...v,academicYear:e.target.value}))} pattern="\d{4}/\d{4}" placeholder="2026/2027" required/></label><label>Mulai<input type="date" value={periodForm.startsOn} onChange={e=>setPeriodForm(v=>({...v,startsOn:e.target.value}))} required/></label><label>Selesai<input type="date" value={periodForm.endsOn} onChange={e=>setPeriodForm(v=>({...v,endsOn:e.target.value}))} required/></label><button className="button primary" disabled={busy==="period"}>Tambah periode</button></form></section><Panel title="Daftar periode" subtitle={`${periods.length} periode`}>{periods.map(p=><div className="period-record" key={p.id}><CalendarDays/><span><b>{p.name}</b><small>{p.academicYear} · {p.startsOn} sampai {p.endsOn}</small></span>{p.isActive?<i className="status green">Aktif</i>:<button onClick={()=>periodAction(p.id,"ACTIVATE")}>Aktifkan</button>}<button aria-label={p.isLocked?"Buka kunci periode":"Kunci periode"} onClick={()=>periodAction(p.id,"LOCK",!p.isLocked)}><Lock/>{p.isLocked?"Terkunci":"Kunci"}</button></div>)}</Panel></>}
+  {active==="Log Audit"&&viewerRole==="ADMIN"&&<Panel title="Log audit" subtitle={`${audits.length} aktivitas terbaru`}>{audits.map(a=><div className="static-record" key={a.id}><Clock3/><span><b>{a.actorName} · {a.action}</b><small>{a.entityType} · {a.entityId} · {formatDate(a.createdAt)}</small></span></div>)}</Panel>}
+  {active==="Arsip Bimbingan"&&<section className="panel archive-panel"><header><div><h2>Mahasiswa selesai</h2><p>{archivedStudents.length} mahasiswa dalam arsip.</p></div></header>{archivedStudents.length===0?<Empty text="Belum ada bimbingan yang diarsipkan."/>:<div className="archive-grid">{archivedStudents.map(s=><article key={s.id}><Archive/><div><b>{s.name}</b><small>{s.nim} · {s.program} · {s.consultationCount} konsultasi</small><p>{s.consultationTopics.join(" · ")||"Tidak ada topik konsultasi"}</p></div>{viewerRole==="ADMIN"&&<button className="danger-button" disabled={busy===`${s.id}-purge`} onClick={()=>purgeStudent(s)}><Trash2/>{busy===`${s.id}-purge`?"Menghapus…":"Hapus data"}</button>}</article>)}</div>}</section>}
+  {active==="Pusat Bantuan"&&<section className="panel help-panel"><header><div><h2>Panduan pengelola</h2><p>Alur utama Bimbingan Andaz.</p></div></header><div className="help-grid"><article><UsersRound/><b>Kelola mahasiswa</b><p>Setujui pendaftar dan tetapkan kelayakan ujian.</p></article><article><FileCheck2/><b>Review judul</b><p>Berikan keputusan dan catatan yang dapat ditindaklanjuti.</p></article><article><MessageSquareText/><b>Balas konsultasi</b><p>Tanggapi pertanyaan pada antrian bimbingan.</p></article><article><BookOpen/><b>Verifikasi catatan</b><p>Pastikan logbook sesuai dengan sesi bimbingan.</p></article></div></section>}
+  {active==="Pengaturan"&&<section className="panel profile-card"><header><div><h2>Pengaturan akun</h2><p>Identitas dan keamanan akun.</p></div></header><dl><div><dt>Nama pengguna</dt><dd>{viewerName}</dd></div><div><dt>Peran</dt><dd>{viewerRole==="ADMIN"?"Administrator":"Dosen"}</dd></div><div><dt>Status</dt><dd><i className="status green">Aktif</i></dd></div><div><dt>Keamanan</dt><dd>Login dan sesi dikelola oleh Neon Auth.</dd></div></dl></section>}
+  </div></main>{toast&&<div className="toast" role="status"><UserRoundCheck/><span>{toast}</span><button aria-label="Tutup pemberitahuan" onClick={()=>setToast("")}><X/></button></div>}</div>;
 }
 
-function Empty({text}:{text:string}) { return <div className="empty compact-empty"><span><Sparkles/></span><h2>{text}</h2><p>Informasi akan tampil otomatis setelah fitur digunakan.</p></div>; }
-
-function ExamDecision({ label, value, busy, onChange }: {
-  label: string; value: string; busy: boolean; onChange: (decision: "NOT_YET" | "ELIGIBLE") => void;
-}) {
-  return <div className="exam-decision"><span><b>{label}</b><small>{value === "ELIGIBLE" ? "Layak mengikuti ujian" : value === "NOT_YET" ? "Belum layak" : "Belum dinilai"}</small></span><div><button disabled={busy} className={value === "NOT_YET" ? "selected no" : ""} onClick={()=>onChange("NOT_YET")}>Belum layak</button><button disabled={busy} className={value === "ELIGIBLE" ? "selected yes" : ""} onClick={()=>onChange("ELIGIBLE")}>Layak</button></div></div>;
-}
+function Metric({icon,label,value,note}:{icon:ReactNode;label:string;value:number;note:string}){return <article><span className="metric-icon blue">{icon}</span><div><small>{label}</small><b>{value}</b><p>{note}</p></div></article>}
+function Panel({title,subtitle,children}:{title:string;subtitle:string;children:ReactNode}){const has=Array.isArray(children)?children.length>0:Boolean(children);return <section className="panel module-panel"><header><div><h2>{title}</h2><p>{subtitle}</p></div></header><div className="record-list">{has?children:<Empty text="Belum ada data."/>}</div></section>}
+function Empty({text}:{text:string}){return <div className="empty compact-empty"><span><GraduationCap/></span><h2>{text}</h2><p>Informasi akan tampil setelah fitur digunakan.</p></div>}
+function ExamDecision({label,value,busy,onChange}:{label:string;value:string;busy:boolean;onChange:(decision:"NOT_YET"|"ELIGIBLE")=>void}){return <div className="exam-decision"><span><b>{label}</b><small>{value==="ELIGIBLE"?"Layak mengikuti ujian":value==="NOT_YET"?"Belum layak":"Belum dinilai"}</small></span><div><button disabled={busy} className={value==="NOT_YET"?"selected no":""} onClick={()=>onChange("NOT_YET")}>Belum layak</button><button disabled={busy} className={value==="ELIGIBLE"?"selected yes":""} onClick={()=>onChange("ELIGIBLE")}>Layak</button></div></div>}
