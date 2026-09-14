@@ -10,6 +10,7 @@ import {
 import { authClient } from "@/lib/auth/client";
 
 export type DashboardStudent = {
+  id: string;
   name: string;
   nim: string;
   program: string;
@@ -27,6 +28,7 @@ export type DashboardProps = {
   incomingCount: number;
   documentCount: number;
   currentTime: string;
+  canManageStudents: boolean;
 };
 
 const nav = [
@@ -53,24 +55,26 @@ function statusLabel(status: string) {
   return ({ ACTIVE: "Aktif", PENDING: "Menunggu", DISABLED: "Nonaktif", REJECTED: "Ditolak", COMPLETED: "Selesai" } as Record<string, string>)[status] || status;
 }
 
-export default function Dashboard({ viewerName, viewerRole, period, students, incomingCount, documentCount, currentTime }: DashboardProps) {
+export default function Dashboard({ viewerName, viewerRole, period, students, incomingCount, documentCount, currentTime, canManageStudents }: DashboardProps) {
   const router = useRouter();
+  const [studentRecords, setStudentRecords] = useState(students);
+  const [updatingStudent, setUpdatingStudent] = useState("");
   const [active, setActive] = useState("Ringkasan");
   const [search, setSearch] = useState("");
   const [mobile, setMobile] = useState(false);
   const [toast, setToast] = useState("");
   const filtered = useMemo(
-    () => students.filter(s => (s.name + s.nim + s.program).toLowerCase().includes(search.toLowerCase())),
-    [search, students],
+    () => studentRecords.filter(s => (s.name + s.nim + s.program).toLowerCase().includes(search.toLowerCase())),
+    [search, studentRecords],
   );
-  const activeStudents = students.filter(s => s.status === "ACTIVE").length;
+  const activeStudents = studentRecords.filter(s => s.status === "ACTIVE").length;
   const referenceTime = new Date(currentTime).getTime();
-  const followup = students.filter(s => referenceTime - new Date(s.updatedAt).getTime() > 14 * 86_400_000).length;
+  const followup = studentRecords.filter(s => referenceTime - new Date(s.updatedAt).getTime() > 14 * 86_400_000).length;
   const stageCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const student of students) counts.set(student.stage, (counts.get(student.stage) || 0) + 1);
+    for (const student of studentRecords) counts.set(student.stage, (counts.get(student.stage) || 0) + 1);
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-  }, [students]);
+  }, [studentRecords]);
   const maxStage = Math.max(...stageCounts.map(([, count]) => count), 1);
   const initials = viewerName.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase();
 
@@ -86,6 +90,30 @@ export default function Dashboard({ viewerName, viewerRole, period, students, in
     router.refresh();
   }
 
+  async function updateStudentStatus(student: DashboardStudent, status: "ACTIVE" | "REJECTED") {
+    if (status === "REJECTED" && !window.confirm(`Tolak registrasi ${student.name}?`)) return;
+    setUpdatingStudent(student.id);
+    setToast("");
+    try {
+      const response = await fetch(`/api/admin/students/${student.id}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Status gagal diperbarui.");
+      setStudentRecords(current => current.map(item =>
+        item.id === student.id ? { ...item, status, updatedAt: new Date().toISOString() } : item
+      ));
+      setToast(status === "ACTIVE" ? `${student.name} berhasil disetujui.` : `Registrasi ${student.name} ditolak.`);
+      router.refresh();
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Status gagal diperbarui.");
+    } finally {
+      setUpdatingStudent("");
+    }
+  }
+
   return <div className="app-shell">
     <aside className={mobile ? "sidebar open" : "sidebar"}>
       <div className="side-brand"><span><GraduationCap/></span><div>Bimbing<b>AI</b><small>AKADEMIK</small></div><button aria-label="Tutup menu" onClick={() => setMobile(false)}><X/></button></div>
@@ -99,20 +127,20 @@ export default function Dashboard({ viewerName, viewerRole, period, students, in
         <div className="welcome"><div><span>{new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(new Date())}</span><h1>{active}</h1><p>Selamat datang, {viewerName}. Data berikut dibaca langsung dari Neon.</p></div><button className="button primary" onClick={() => setToast("Belum ada bimbingan baru.")}><MessageSquareText/> Buka konsultasi</button></div>
         {active === "Ringkasan" && <>
           <section className="metric-grid">
-            <article><span className="metric-icon blue"><UsersRound/></span><div><small>Mahasiswa aktif</small><b>{activeStudents}</b><p>{students.length} akun terdaftar</p></div></article>
+            <article><span className="metric-icon blue"><UsersRound/></span><div><small>Mahasiswa aktif</small><b>{activeStudents}</b><p>{studentRecords.length} akun terdaftar</p></div></article>
             <article><span className="metric-icon cyan"><MessageSquareText/></span><div><small>Bimbingan masuk</small><b>{incomingCount}</b><p>Menunggu ditinjau</p></div></article>
             <article><span className="metric-icon violet"><FileText/></span><div><small>Dokumen tersimpan</small><b>{documentCount}</b><p>Belum diarsipkan</p></div></article>
             <article><span className="metric-icon amber"><Clock3/></span><div><small>Perlu follow-up</small><b>{followup}</b><p>Tidak diperbarui 14 hari</p></div></article>
           </section>
-          {students.length === 0 ? <section className="empty panel dashboard-empty"><span><UsersRound/></span><h2>Belum ada mahasiswa</h2><p>Data mahasiswa akan muncul otomatis setelah mahasiswa membuat akun, melengkapi profil, dan disetujui.</p></section> :
+          {studentRecords.length === 0 ? <section className="empty panel dashboard-empty"><span><UsersRound/></span><h2>Belum ada mahasiswa</h2><p>Data mahasiswa akan muncul otomatis setelah mahasiswa membuat akun dan melengkapi profil.</p></section> :
           <section className="dash-grid">
             <article className="panel stage-panel"><header><div><h2>Mahasiswa berdasarkan tahap</h2><p>Distribusi progres saat ini</p></div></header><div className="stage-bars">{stageCounts.map(([label, count]) => <div key={label}><span>{label}</span><div><i style={{ width: `${(count / maxStage) * 100}%` }}/></div><b>{count}</b></div>)}</div></article>
-            <article className="panel activity-panel"><header><div><h2>Pembaruan terbaru</h2><p>Aktivitas data mahasiswa</p></div></header>{students.slice(0, 4).map((student, index) => <div className="activity-row" key={student.nim}><span className={`student-avatar a${index}`}>{student.name.split(" ").map(x => x[0]).join("").slice(0, 2)}</span><p><b>{student.name}</b><small>{student.stage}</small></p><time>{relativeTime(student.updatedAt, currentTime)}</time></div>)}</article>
+            <article className="panel activity-panel"><header><div><h2>Pembaruan terbaru</h2><p>Aktivitas data mahasiswa</p></div></header>{studentRecords.slice(0, 4).map((student, index) => <div className="activity-row" key={student.id}><span className={`student-avatar a${index}`}>{student.name.split(" ").map(x => x[0]).join("").slice(0, 2)}</span><p><b>{student.name}</b><small>{student.stage}</small></p><time>{relativeTime(student.updatedAt, currentTime)}</time></div>)}</article>
           </section>}
         </>}
         {(active === "Mahasiswa" || search) && <section className="panel student-panel"><header><div><h2>Mahasiswa bimbingan</h2><p>{filtered.length} mahasiswa ditemukan</p></div><div className="mini-search"><Search/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari mahasiswa…"/></div></header>
           {filtered.length === 0 ? <div className="empty"><span><Search/></span><h2>Tidak ada data mahasiswa</h2><p>Daftar ini akan terisi dari database Neon.</p></div> :
-          <div className="student-table"><div className="table-head"><span>Mahasiswa</span><span>Program</span><span>Tahap & progres</span><span>Status</span><span>Terakhir</span></div>{filtered.map((student, index) => <button className="student-row" key={student.nim} onClick={() => setToast(`Membuka data ${student.name}`)}><span className="student-name"><i className={`student-avatar a${index}`}>{student.name.split(" ").map(x => x[0]).join("").slice(0, 2)}</i><p><b>{student.name}</b><small>{student.nim}</small></p></span><span>{student.program}</span><span className="stage-cell"><b>{student.stage}</b><i><em style={{ width: `${student.progress}%` }}/></i><small>{student.progress}%</small></span><span><i className={`status ${statusTone(student.status)}`}>{statusLabel(student.status)}</i></span><span>{relativeTime(student.updatedAt, currentTime)}</span></button>)}</div>}
+          <div className="student-table"><div className="table-head"><span>Mahasiswa</span><span>Program</span><span>Tahap & progres</span><span>Status / tindakan</span><span>Terakhir</span></div>{filtered.map((student, index) => <div className="student-row" key={student.id}><span className="student-name"><i className={`student-avatar a${index}`}>{student.name.split(" ").map(x => x[0]).join("").slice(0, 2)}</i><p><b>{student.name}</b><small>{student.nim}</small></p></span><span>{student.program}</span><span className="stage-cell"><b>{student.stage}</b><i><em style={{ width: `${student.progress}%` }}/></i><small>{student.progress}%</small></span><span className="approval-cell"><i className={`status ${statusTone(student.status)}`}>{statusLabel(student.status)}</i>{canManageStudents && student.status === "PENDING" && <span className="approval-actions"><button disabled={updatingStudent === student.id} onClick={() => updateStudentStatus(student, "ACTIVE")}>Setujui</button><button disabled={updatingStudent === student.id} className="reject" onClick={() => updateStudentStatus(student, "REJECTED")}>Tolak</button></span>}</span><span>{relativeTime(student.updatedAt, currentTime)}</span></div>)}</div>}
         </section>}
         {active !== "Ringkasan" && active !== "Mahasiswa" && !search && <section className="empty panel"><span><Sparkles/></span><h2>{active}</h2><p>Belum ada data pada modul ini. Data baru akan tampil setelah digunakan.</p><button className="button primary" onClick={() => setActive("Ringkasan")}>Kembali ke ringkasan</button></section>}
       </div>
