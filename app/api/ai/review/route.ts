@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { getViewer } from "@/lib/viewer";
@@ -66,7 +67,10 @@ export async function POST(request: Request) {
   }
 
   const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "Layanan AI belum dikonfigurasi oleh admin." }, { status: 503 });
+  const gatewayAvailable = Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL);
+  if (!apiKey && !gatewayAvailable) {
+    return NextResponse.json({ error: "Layanan AI belum dikonfigurasi oleh admin." }, { status: 503 });
+  }
   const model = settings?.model_name || "gpt-5-mini";
   const maxFindings = Number(settings?.max_findings || 20);
   const reviewRows = await sql`
@@ -84,38 +88,59 @@ Instruksi pengelola: ${settings?.custom_instructions || "Utamakan logika ilmiah,
 Berikan maksimal ${maxFindings} temuan yang konkret dan dapat ditindaklanjuti.\n\nNASKAH:\n${version.extracted_text}`;
 
   try {
-    const aiResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        input: prompt,
-        max_output_tokens: 8000,
-        text: { format: { type: "json_schema", name: "academic_review", strict: true, schema: {
-          type: "object", additionalProperties: false,
-          properties: { items: { type: "array", maxItems: maxFindings, items: {
+    let items: z.infer<typeof itemSchema>[];
+    if (apiKey) {
+      const aiResponse = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          input: prompt,
+          max_output_tokens: 8000,
+          text: { format: { type: "json_schema", name: "academic_review", strict: true, schema: {
             type: "object", additionalProperties: false,
-            properties: {
-              category: { type: "string" }, severity: { type: "string", enum: ["MAJOR", "MINOR", "LANGUAGE"] },
-              location: { type: ["string", "null"] }, quotation: { type: ["string", "null"] },
-              finding: { type: "string" }, rationale: { type: "string" }, suggestion: { type: "string" },
-              confidence: { type: ["number", "null"], minimum: 0, maximum: 1 },
-              examiner_question: { type: ["string", "null"] }, verification_source: { type: ["string", "null"] },
-            },
-            required: ["category", "severity", "location", "quotation", "finding", "rationale", "suggestion", "confidence", "examiner_question", "verification_source"],
-          } } }, required: ["items"],
-        } } },
-      }),
-      signal: AbortSignal.timeout(115_000),
-    });
-    if (!aiResponse.ok) {
-      const body = await aiResponse.text();
-      console.error("ai_review_provider_failed", aiResponse.status, body.slice(0, 500));
-      throw new Error(`Penyedia AI mengembalikan status ${aiResponse.status}.`);
+            properties: { items: { type: "array", maxItems: maxFindings, items: {
+              type: "object", additionalProperties: false,
+              properties: {
+                category: { type: "string" }, severity: { type: "string", enum: ["MAJOR", "MINOR", "LANGUAGE"] },
+                location: { type: ["string", "null"] }, quotation: { type: ["string", "null"] },
+                finding: { type: "string" }, rationale: { type: "string" }, suggestion: { type: "string" },
+                confidence: { type: ["number", "null"], minimum: 0, maximum: 1 },
+                examiner_question: { type: ["string", "null"] }, verification_source: { type: ["string", "null"] },
+              },
+              required: ["category", "severity", "location", "quotation", "finding", "rationale", "suggestion", "confidence", "examiner_question", "verification_source"],
+            } } }, required: ["items"],
+          } } },
+        }),
+        signal: AbortSignal.timeout(115_000),
+      });
+      if (!aiResponse.ok) {
+        const body = await aiResponse.text();
+        console.error("ai_review_provider_failed", aiResponse.status, body.slice(0, 500));
+        throw new Error(`Penyedia AI mengembalikan status ${aiResponse.status}.`);
+      }
+      const result = await aiResponse.json();
+      const output = JSON.parse(extractOutputText(result));
+      items = z.array(itemSchema).min(1).max(maxFindings).parse(output.items);
+    } else {
+      const gatewayModel = model.includes("/") ? model : `openai/${model}`;
+      const result = await generateText({
+        model: gatewayModel,
+        output: Output.object({
+          schema: z.object({ items: z.array(itemSchema).min(1).max(maxFindings) }),
+        }),
+        prompt,
+        maxOutputTokens: 8000,
+        abortSignal: AbortSignal.timeout(115_000),
+        providerOptions: {
+          gateway: {
+            user: viewer.id,
+            tags: ["feature:academic-review", "app:bimbingai"],
+          },
+        },
+      });
+      items = result.output.items;
     }
-    const result = await aiResponse.json();
-    const output = JSON.parse(extractOutputText(result));
-    const items = z.array(itemSchema).min(1).max(maxFindings).parse(output.items);
     await sql.transaction((tx) => [
       tx`DELETE FROM public.ai_review_items WHERE ai_review_id=${reviewId}::uuid`,
       ...items.map(item => tx`INSERT INTO public.ai_review_items

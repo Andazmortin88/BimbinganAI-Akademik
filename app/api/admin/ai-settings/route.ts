@@ -29,6 +29,13 @@ export async function POST(request: Request) {
       custom_instructions=EXCLUDED.custom_instructions, max_findings=EXCLUDED.max_findings,
       updated_by=EXCLUDED.updated_by, updated_at=now()
   `;
-  return NextResponse.json({ ok: true, apiConfigured: Boolean(process.env.OPENAI_API_KEY || process.env.AI_API_KEY) });
+  return NextResponse.json({
+    ok: true,
+    apiConfigured: Boolean(
+      process.env.OPENAI_API_KEY ||
+      process.env.AI_API_KEY ||
+      process.env.AI_GATEWAY_API_KEY ||
+      process.env.VERCEL,
+    ),
+  });
 }
-

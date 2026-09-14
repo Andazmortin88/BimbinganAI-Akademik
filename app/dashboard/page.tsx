@@ -118,7 +118,12 @@ export default async function DashboardPage() {
     modelName: rawAiSettings?.model_name || "gpt-5-mini",
     customInstructions: rawAiSettings?.custom_instructions || "Utamakan ketepatan ilmiah, konsistensi metode, bahasa akademik, etika penelitian, dan saran yang dapat ditindaklanjuti. Jangan mengarang sumber atau menyatakan plagiarisme.",
     maxFindings: Number(rawAiSettings?.max_findings || 20),
-    apiConfigured: Boolean(process.env.OPENAI_API_KEY || process.env.AI_API_KEY),
+    apiConfigured: Boolean(
+      process.env.OPENAI_API_KEY ||
+      process.env.AI_API_KEY ||
+      process.env.AI_GATEWAY_API_KEY ||
+      process.env.VERCEL,
+    ),
   };
 
   if (viewer.role === "STUDENT") {
