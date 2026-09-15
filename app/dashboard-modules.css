@@ -169,11 +169,24 @@
 .student-hero aside{grid-template-columns:auto 1fr}
 .ai-controls,.upload-panel form{align-items:stretch;flex-direction:column}
 .ai-controls label,.ai-controls .button,.upload-panel form>label,.upload-panel .button{width:100%}
+.review-record{flex-direction:column}
+.review-record>aside{width:100%}
+.booking-record,.period-record{flex-wrap:wrap}
+.inline-book{width:100%;min-width:0}
+.inline-book input{flex:1}
 }
 
-@media(max-width:640px){.student-welcome{padding:20px;align-items:flex-start}
+@media(max-width:640px){.student-welcome{padding:18px;align-items:flex-start;border-radius:15px;gap:12px}
+.student-welcome h1{font-size:24px;line-height:1.15}
+.student-welcome p{font-size:11px;line-height:1.5}
 .student-welcome .button{width:43px;padding:0;font-size:0}
 .student-hero aside{min-width:0}
+.student-hero>div{padding:20px 16px}
+.student-hero h2{font-size:19px}
+.student-hero aside{padding:17px 16px;grid-template-columns:minmax(105px,auto) 1fr}
+.student-hero aside b{font-size:16px;overflow-wrap:anywhere}
+.student-actions{gap:10px;margin-top:10px}
+.student-actions button{min-height:72px;padding:15px}
 .student-page-label span{display:none}
 .document-list>div{align-items:flex-start;flex-wrap:wrap}
 .document-list>div span{flex-basis:70%}
@@ -185,6 +198,11 @@
 .exam-decision{align-items:flex-start;flex-direction:column}
 .detail-record,.review-record,.booking-record{flex-direction:column}
 .review-record>aside{width:100%}
-.inline-book{min-width:0;width:100%}
-.stats-bars>article{grid-template-columns:1fr 2fr 38px;padding-inline:14px}
+.upload-panel form,.consultation-compose form{padding:16px}
+.upload-panel input,.upload-panel select,.consultation-compose input,.consultation-compose textarea{max-width:100%;width:100%}
+.detail-record,.review-record,.booking-record,.period-record{padding:13px 0;flex-wrap:wrap}
+.inline-book{min-width:0;width:100%;flex-direction:column;align-items:stretch}
+.inline-book .button{width:100%}
+.stats-bars>article{grid-template-columns:1fr 42px;padding:10px 16px}
+.stats-bars>article>div{grid-column:1/-1;grid-row:2}
 }
