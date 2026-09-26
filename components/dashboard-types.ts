@@ -138,6 +138,36 @@ export type DashboardStage = {
   weight: number;
 };
 
+export type DashboardCommentTemplate = {
+  id: string;
+  category: string;
+  title: string;
+  content: string;
+  ownerName: string;
+  updatedAt: string;
+};
+
+export type DashboardSuratTemplate = {
+  id: string;
+  name: string;
+  documentType: string;
+  bodyTemplate: string;
+  isActive: boolean;
+};
+
+export type DashboardSuratRequest = {
+  id: string;
+  studentName: string;
+  studentId: string;
+  templateName: string | null;
+  documentType: string | null;
+  purpose: string;
+  status: string;
+  reviewerNotes: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+};
+
 export type DashboardPeriod = {
   id: string;
   name: string;
