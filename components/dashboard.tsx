@@ -6,17 +6,17 @@ import {
   Archive, BarChart3, Bell, BookOpen, CalendarDays, CalendarPlus, CheckCircle2,
   ChevronDown, CircleHelp, ClipboardList, Clock3, Download, FileCheck2, FileText,
   GraduationCap, LayoutDashboard, Lock, LogOut, Menu, MessageSquareText, Search,
-  Send, Settings, Trash2, UserRoundCheck, UsersRound, X,
+  Send, Settings, Trash2, UploadCloud, UserRoundCheck, UsersRound, X,
 } from "lucide-react";
 import { authClient } from "@/lib/auth/client";
 import type {
-  DashboardAppointment, DashboardAudit, DashboardBookingSlot, DashboardConsultation,
-  DashboardDocument, DashboardLogbook, DashboardNotification, DashboardPeriod, DashboardStudent, DashboardTitle,
+  DashboardAppointment, DashboardAudit, DashboardBookingRequest, DashboardBookingSlot, DashboardConsultation,
+  DashboardDocument, DashboardLogbook, DashboardNotification, DashboardPeriod, DashboardStage, DashboardStudent, DashboardTitle,
 } from "@/components/dashboard-types";
 
 export type {DashboardStudent} from "@/components/dashboard-types";
-type Props={viewerName:string;viewerRole:"ADMIN"|"LECTURER";period:string;students:DashboardStudent[];consultations:DashboardConsultation[];documents:DashboardDocument[];appointments:DashboardAppointment[];titles:DashboardTitle[];logbook:DashboardLogbook[];notifications:DashboardNotification[];bookingSlots:DashboardBookingSlot[];periods:DashboardPeriod[];audits:DashboardAudit[];currentTime:string};
-const commonNav=[["Ringkasan",LayoutDashboard],["Mahasiswa",UsersRound],["Antrian & Bimbingan",MessageSquareText],["Dokumen",FileText],["Pengajuan Judul",FileCheck2],["Catatan Bimbingan",BookOpen],["Slot Bimbingan",CalendarPlus],["Jadwal",CalendarDays],["Statistik",BarChart3],["Notifikasi",Bell],["Arsip Bimbingan",Archive]] as const;
+type Props={viewerName:string;viewerRole:"ADMIN"|"LECTURER";period:string;students:DashboardStudent[];consultations:DashboardConsultation[];documents:DashboardDocument[];appointments:DashboardAppointment[];titles:DashboardTitle[];logbook:DashboardLogbook[];notifications:DashboardNotification[];bookingSlots:DashboardBookingSlot[];bookingRequests:DashboardBookingRequest[];stages:DashboardStage[];periods:DashboardPeriod[];audits:DashboardAudit[];currentTime:string};
+const commonNav=[["Ringkasan",LayoutDashboard],["Mahasiswa",UsersRound],["Antrian & Bimbingan",MessageSquareText],["Dokumen & Review",FileText],["Progress & Tahapan",BarChart3],["Tindak Lanjut",Clock3],["Pengajuan Judul",FileCheck2],["Catatan Bimbingan",BookOpen],["Slot Bimbingan",CalendarPlus],["Booking Masuk",CalendarDays],["Jadwal",CalendarDays],["Kelayakan Ujian",ClipboardList],["Laporan & Rekap",BarChart3],["Notifikasi",Bell],["Arsip Bimbingan",Archive]] as const;
 const adminOnly=[["Periode Akademik",ClipboardList],["Log Audit",Clock3]] as const;
 const statusLabel=(status:string)=>({ACTIVE:"Aktif",PENDING:"Menunggu",DISABLED:"Nonaktif",REJECTED:"Ditolak",COMPLETED:"Selesai",SUBMITTED:"Dikirim",IN_REVIEW:"Ditinjau",REVISION:"Perlu revisi",APPROVED:"Disetujui",DONE:"Selesai",FAILED:"Gagal",CONFIRMED:"Terkonfirmasi"} as Record<string,string>)[status]||status;
 const statusTone=(status:string)=>["ACTIVE","APPROVED","COMPLETED","CONFIRMED"].includes(status)?"green":["PENDING","SUBMITTED"].includes(status)?"yellow":["REJECTED","FAILED"].includes(status)?"red":"orange";
@@ -24,9 +24,9 @@ const formatDate=(value:string)=>new Intl.DateTimeFormat("id-ID",{dateStyle:"med
 const formatSize=(bytes:number)=>bytes<1024*1024?`${Math.ceil(bytes/1024)} KB`:`${(bytes/1024/1024).toFixed(1)} MB`;
 
 export default function Dashboard(props:Props){
-  const {viewerName,viewerRole,period,students,consultations,documents,appointments,titles,logbook,notifications,bookingSlots,periods,audits,currentTime}=props;
+  const {viewerName,viewerRole,period,students,consultations,documents,appointments,titles,logbook,notifications,bookingSlots,bookingRequests,stages,periods,audits,currentTime}=props;
   const router=useRouter();const nav=viewerRole==="ADMIN"?[...commonNav,...adminOnly]:commonNav;const [studentRecords,setStudentRecords]=useState(students);const [active,setActive]=useState("Ringkasan");const [search,setSearch]=useState("");const [mobile,setMobile]=useState(false);const [toast,setToast]=useState("");const [busy,setBusy]=useState("");const [reply,setReply]=useState<Record<string,string>>({});const [reviewNotes,setReviewNotes]=useState<Record<string,string>>({});const [consultationForm,setConsultationForm]=useState({studentId:"",subject:"",message:""});
-  const [slotForm,setSlotForm]=useState({startsAt:"",endsAt:"",method:"Tatap muka",locationOrUrl:"",quota:1});const [periodForm,setPeriodForm]=useState({name:"",semester:1,academicYear:"",startsOn:"",endsOn:""});
+  const [slotForm,setSlotForm]=useState({startsAt:"",endsAt:"",method:"Tatap muka",locationOrUrl:"",quota:1});const [periodForm,setPeriodForm]=useState({name:"",semester:1,academicYear:"",startsOn:"",endsOn:""});const [selectedStudentId,setSelectedStudentId]=useState<string|null>(null);
   const filtered=useMemo(()=>studentRecords.filter(s=>`${s.name} ${s.nim} ${s.program}`.toLowerCase().includes(search.toLowerCase())),[search,studentRecords]);const activeStudents=studentRecords.filter(s=>s.status==="ACTIVE").length;const incomingCount=consultations.filter(c=>["SUBMITTED","WAITING_REVIEW"].includes(c.status)).length;const unread=notifications.filter(item=>!item.readAt).length;const referenceTime=new Date(currentTime).getTime();const followup=studentRecords.filter(s=>referenceTime-new Date(s.updatedAt).getTime()>14*86400000).length;const archivedStudents=studentRecords.filter(s=>s.status==="COMPLETED"||Boolean(s.archivedAt));const initials=viewerName.split(" ").map(x=>x[0]).join("").slice(0,2).toUpperCase();
   useEffect(()=>{if(active!=="Antrian & Bimbingan")return;const timer=window.setInterval(()=>router.refresh(),15000);return()=>window.clearInterval(timer)},[active,router]);
   async function logout(){await authClient.signOut();router.replace("/");router.refresh()}
