@@ -4,6 +4,10 @@ export type DashboardStudent = {
   name: string;
   nim: string;
   program: string;
+  whatsapp: string;
+  cohort: number;
+  className: string;
+  supervisors: string[];
   stage: string;
   progress: number;
   status: string;
@@ -24,6 +28,8 @@ export type DashboardDocument = {
   status: string;
   sizeBytes: number;
   createdAt: string;
+  uploaderName: string;
+  uploaderRole: string;
 };
 
 export type DashboardMessage = {
@@ -110,6 +116,26 @@ export type DashboardBookingSlot = {
   booked: number;
   myBookingId: string | null;
   myBookingStatus: string | null;
+};
+
+export type DashboardBookingRequest = {
+  id: string;
+  studentName: string;
+  studentId: string;
+  topic: string;
+  note: string | null;
+  status: string;
+  startsAt: string;
+  endsAt: string;
+  method: string;
+  locationOrUrl: string | null;
+  createdAt: string;
+};
+
+export type DashboardStage = {
+  id: number;
+  name: string;
+  weight: number;
 };
 
 export type DashboardPeriod = {
