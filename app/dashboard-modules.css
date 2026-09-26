@@ -258,3 +258,39 @@
   .report-panel>header{align-items:flex-start;gap:10px;flex-direction:column}.report-panel>header .button{width:100%}
   .report-list>div{grid-template-columns:1fr}.report-list>div .status{justify-self:start}
 }
+
+
+/* Surat administration and reusable lecturer templates */
+.surat-review-list{padding:0 20px 20px}
+.surat-review-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,340px);gap:18px;padding:16px 0;border-bottom:1px solid #edf1f5}
+.surat-review-card:last-child{border-bottom:0}
+.surat-review-card b,.surat-review-card small{display:block}
+.surat-review-card small{font-size:9px;color:#76869a;margin-top:4px}
+.surat-review-card p{font-size:10px;color:#5f7086;line-height:1.55;margin:9px 0 0}
+.surat-review-card aside{display:flex;flex-direction:column;gap:9px;align-items:stretch}
+.surat-review-card textarea{min-height:70px;border:1px solid #dce5ee;border-radius:9px;padding:9px;resize:vertical}
+.surat-review-card aside>div{display:flex;gap:7px}
+.surat-review-card button,.template-grid button,.template-comment-list button{border:1px solid #cbdbea;background:#fff;color:#286bbd;border-radius:8px;padding:7px 9px;font-size:9px;font-weight:800;cursor:pointer}
+.surat-review-card button.reject,.template-comment-list button.reject{color:#b9354b;border-color:#ffd0d8;background:#fff4f5}
+.template-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 20px 20px}
+.template-grid article{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;border:1px solid #e1e9f2;border-radius:11px;padding:12px;background:#fbfdff}
+.template-grid b,.template-grid small{display:block}.template-grid small{font-size:9px;color:#76869a;margin-top:3px}
+.template-comment-list{padding:0 20px 20px}
+.template-comment-list article{display:flex;justify-content:space-between;gap:18px;padding:14px 0;border-bottom:1px solid #edf1f5}
+.template-comment-list article:last-child{border-bottom:0}
+.template-comment-list article>div:first-child{flex:1;min-width:0}
+.template-comment-list small,.template-comment-list b{display:block}
+.template-comment-list small{font-size:9px;color:#76869a}.template-comment-list b{margin-top:4px;font-size:11px}
+.template-comment-list p{font-size:10px;color:#5f7086;line-height:1.5;margin:7px 0 0}
+.template-comment-list article>div:last-child{display:flex;gap:6px;align-items:flex-start}
+
+@media(max-width:900px){
+  .surat-review-card{grid-template-columns:1fr}
+  .template-grid{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  .surat-review-card aside>div,.template-comment-list article>div:last-child{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .template-comment-list article{flex-direction:column}
+  .template-grid article{grid-template-columns:1fr auto}
+  .template-grid article button{grid-column:1/-1}
+}
