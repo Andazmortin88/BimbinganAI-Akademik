@@ -29,10 +29,10 @@
 .reply-form button svg{width:16px}
 .reply-form button:disabled{opacity:.55}
 .ai-controls,.upload-panel form{padding:22px;display:flex;align-items:end;gap:14px}
-.ai-controls label,.upload-panel form>label:not(.file-drop),.consultation-compose label{display:flex;flex-direction:column;gap:7px;color:#40506a;font-size:11px;font-weight:750}
+.ai-controls label,.upload-panel form>label:not(.file-drop),.consultation-compose label{display:flex;flex-direction:column;gap:7px;color:#40506a;font-size:11px;font-weight:750}\n.consultation-compose form{padding:18px;display:grid;gap:12px}\n.consultation-compose textarea{min-height:110px;padding:10px 11px!important;resize:vertical}\n.consultation-compose .button{justify-self:start}
 .ai-controls label{flex:1}
-.ai-controls select,.upload-panel select,.consultation-compose input,.consultation-compose textarea{border:1px solid #dce5ee;border-radius:10px;background:#fff;color:#26364f;padding:0 11px;outline:0}
-.ai-controls select,.upload-panel select,.consultation-compose input{height:42px}
+.ai-controls select,.upload-panel select,.consultation-compose input,.consultation-compose textarea,.consultation-compose select{border:1px solid #dce5ee;border-radius:10px;background:#fff;color:#26364f;padding:0 11px;outline:0}
+.ai-controls select,.upload-panel select,.consultation-compose input,.consultation-compose select{height:42px}
 .ai-controls .button,.upload-panel .button{min-height:42px;font-size:11px;white-space:nowrap}
 .result-list>article{display:flex;gap:12px;padding:15px 22px;border-bottom:1px solid #edf1f5}
 .result-list>article>div{flex:1}

@@ -4,6 +4,7 @@ import mammoth from "mammoth";
 import { getSql } from "@/lib/db";
 import { getViewer } from "@/lib/viewer";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { sendAdminWhatsAppNotification } from "@/lib/whatsapp";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -82,13 +83,37 @@ export async function POST(request: NextRequest) {
          FROM public.document_versions v
          WHERE v.id=${versionId}::uuid AND d.id=v.document_id`,
       tx`INSERT INTO public.notifications (recipient_id, title, body, type, target_url)
-         SELECT p.id, 'Dokumen baru diunggah', ${`${viewer.fullName} mengunggah ${category}.`}, 'DOCUMENT', '/dashboard'
-         FROM public.profiles p WHERE p.role='ADMIN' AND p.status='ACTIVE'`,
+         SELECT recipient_id, 'Dokumen baru diunggah',
+                ${`${viewer.fullName} mengunggah ${category}.`}, 'DOCUMENT', '/dashboard'
+         FROM (
+           SELECT p.id AS recipient_id
+           FROM public.profiles p
+           WHERE p.role='ADMIN' AND p.status='ACTIVE'
+           UNION
+           SELECT sa.lecturer_id AS recipient_id
+           FROM public.supervision_assignments sa
+           JOIN public.profiles p ON p.id=sa.lecturer_id
+           WHERE sa.project_id=${projectId}::uuid
+             AND sa.is_active
+             AND p.status='ACTIVE'
+         ) recipients
+         WHERE recipient_id <> ${viewer.id}::uuid`,
     ]);
   } catch (error) {
     console.error("document_upload_failed", error);
     return NextResponse.json({ error: "Dokumen belum dapat disimpan. Silakan coba kembali." }, { status: 500 });
   }
+
+  const uploadedAt = new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Jakarta",
+  }).format(new Date());
+
+  await sendAdminWhatsAppNotification({
+    title: "Dokumen baru diunggah",
+    body: `${viewer.fullName} mengunggah ${category}: ${safeName} pada ${uploadedAt} WIB.`,
+  });
 
   return NextResponse.json({ ok: true, versionId, extracted: Boolean(extractedText) });
 }

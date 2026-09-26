@@ -1,0 +1,35 @@
+name: Validate BimbinganAI Fix
+
+on:
+  push:
+    branches:
+      - fix/admin-chat-notifications
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://user:pass@localhost:5432/bimbingan_test
+      NEON_AUTH_BASE_URL: https://example.com/auth
+      NEON_AUTH_COOKIE_SECRET: ci-only-cookie-secret-please-change-in-production
+      ADMIN_EMAIL: admin@example.com
+      AI_API_KEY: ci-only
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm build
