@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { writeAudit } from "@/lib/audit";
 import { getSql } from "@/lib/db";
 import { getViewer } from "@/lib/viewer";
 
@@ -11,6 +12,7 @@ const bodySchema = z.discriminatedUnion("action", [
     decision: z.enum(["NOT_YET", "ELIGIBLE"]),
     notes: z.string().trim().max(1000).optional(),
   }),
+  z.object({ action: z.literal("SET_STAGE"), stageId: z.number().int().min(1).max(99) }),
   z.object({ action: z.literal("COMPLETE_AND_ARCHIVE") }),
 ]);
 
@@ -43,6 +45,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   `;
   const project = projects[0] as { id: string; student_id: string; full_name: string } | undefined;
   if (!project) return NextResponse.json({ error: "Proyek mahasiswa tidak ditemukan." }, { status: 404 });
+
+  if (parsedBody.data.action === "SET_STAGE") {
+    const stageRows = await sql`SELECT id,name FROM public.progress_stages WHERE id=${parsedBody.data.stageId} LIMIT 1`;
+    const stage = stageRows[0] as { id: number; name: string } | undefined;
+    if (!stage) return NextResponse.json({ error: "Tahap progres tidak ditemukan." }, { status: 404 });
+    await sql.transaction((tx) => [
+      tx`UPDATE public.research_projects SET current_stage_id=${stage.id},updated_at=now() WHERE id=${project.id}::uuid`,
+      tx`INSERT INTO public.notifications (recipient_id,title,body,type,target_url)
+         VALUES (${project.student_id}::uuid,'Tahap bimbingan diperbarui',
+                 ${`Tahap saat ini: ${stage.name}.`},'PROGRESS_STAGE','/dashboard')`,
+    ]);
+    await writeAudit(sql,{actorId:viewer.id,action:"PROJECT_STAGE_UPDATED",entityType:"research_project",entityId:project.id});
+    return NextResponse.json({ ok: true, stageId: stage.id, stageName: stage.name });
+  }
 
   if (parsedBody.data.action === "SET_ELIGIBILITY") {
     const { examType, decision, notes } = parsedBody.data;
