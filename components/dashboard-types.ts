@@ -168,6 +168,29 @@ export type DashboardSuratRequest = {
   reviewedAt: string | null;
 };
 
+export type DashboardLecturer = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  status: string;
+  supervisionCount: number;
+};
+
+export type DashboardStaffProfile = {
+  fullName: string;
+  phone: string;
+  bio: string;
+  googleScholarUrl: string;
+  orcidId: string;
+};
+
+export type DashboardIntegrationStatus = {
+  whatsappConfigured: boolean;
+  whatsappDestinationConfigured: boolean;
+  whatsappTemplateConfigured: boolean;
+};
+
 export type DashboardPeriod = {
   id: string;
   name: string;
