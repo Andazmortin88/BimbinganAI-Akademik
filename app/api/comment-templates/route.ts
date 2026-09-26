@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { getSql } from "@/lib/db";
@@ -10,8 +10,8 @@ const schema=z.discriminatedUnion("action",[
   z.object({action:z.literal("DELETE"),id:z.string().uuid()}),
 ]);
 
-export async function POST(request:Request){
-  const limited=enforceRateLimit(request as never,"comment-templates",40,60_000);if(limited)return limited;
+export async function POST(request:NextRequest){
+  const limited=enforceRateLimit(request,"comment-templates",40,60_000);if(limited)return limited;
   const viewer=await getViewer();
   if(!viewer||viewer.status!=="ACTIVE"||!["ADMIN","LECTURER"].includes(viewer.role)) return NextResponse.json({error:"Akses dosen diperlukan."},{status:403});
   const parsed=schema.safeParse(await request.json().catch(()=>null));
