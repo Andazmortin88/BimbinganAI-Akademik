@@ -95,6 +95,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   try {
     await sql.transaction((tx) => [
+      tx`SELECT id FROM public.documents WHERE id=${target.document_id}::uuid FOR UPDATE`,
       tx`INSERT INTO public.document_versions
            (id, document_id, version_no, original_name, archive_name, storage_path, mime_type,
             size_bytes, checksum_sha256, stage_id, previous_version_id, status, uploaded_by, extracted_text_path)

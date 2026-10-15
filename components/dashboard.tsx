@@ -8,6 +8,7 @@ import {
   GraduationCap, LayoutDashboard, Lock, LogOut, Menu, MessageSquareText, Search,
   Send, Settings, Trash2, UploadCloud, UserRoundCheck, UsersRound, X,
 } from "lucide-react";
+import { submitDocument, validateDocumentFile } from "@/lib/document-upload";
 import { authClient } from "@/lib/auth/client";
 import type {
   DashboardAppointment, DashboardAudit, DashboardBookingRequest, DashboardBookingSlot, DashboardCommentTemplate, DashboardConsultation,
@@ -30,7 +31,17 @@ export default function Dashboard(props:Props){
   const filtered=useMemo(()=>studentRecords.filter(s=>`${s.name} ${s.nim} ${s.program}`.toLowerCase().includes(search.toLowerCase())),[search,studentRecords]);const activeStudents=studentRecords.filter(s=>s.status==="ACTIVE").length;const incomingCount=consultations.filter(c=>["SUBMITTED","WAITING_REVIEW"].includes(c.status)).length;const unread=notifications.filter(item=>!item.readAt).length;const referenceTime=new Date(currentTime).getTime();const followup=studentRecords.filter(s=>referenceTime-new Date(s.updatedAt).getTime()>14*86400000).length;const archivedStudents=studentRecords.filter(s=>s.status==="COMPLETED"||Boolean(s.archivedAt));const initials=viewerName.split(" ").map(x=>x[0]).join("").slice(0,2).toUpperCase();
   useEffect(()=>{if(active!=="Antrian & Bimbingan")return;const timer=window.setInterval(()=>router.refresh(),15000);return()=>window.clearInterval(timer)},[active,router]);
   async function logout(){await authClient.signOut();router.replace("/");router.refresh()}
-  async function requestJson(url:string,method:string,body:unknown,key:string,success:string){setBusy(key);const response=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const result=await response.json().catch(()=>({}));setBusy("");if(!response.ok){setToast(result.error||"Permintaan belum dapat diproses.");return false}setToast(success);router.refresh();return true}
+  async function requestJson(url:string,method:string,body:unknown,busyKey:string,success:string) {
+    setBusy(busyKey);
+    try {
+      const response=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok){setToast(result?.error||"Permintaan belum dapat diproses.");return false}
+      setToast(success);router.refresh();return true;
+    } catch {
+      setToast("Koneksi terputus. Periksa data terbaru sebelum mencoba kembali.");return false;
+    } finally {setBusy("")}
+  }
   async function updateStudentStatus(student:DashboardStudent,status:"ACTIVE"|"REJECTED"){if(status==="REJECTED"&&!window.confirm(`Tolak registrasi ${student.name}?`))return;if(await requestJson(`/api/admin/students/${student.id}/status`,"POST",{status},student.id,status==="ACTIVE"?`${student.name} berhasil diaktifkan.`:`${student.name} ditolak.`))setStudentRecords(list=>list.map(x=>x.id===student.id?{...x,status}:x))}
   async function sendReply(event:FormEvent,id:string){event.preventDefault();const message=reply[id]?.trim();if(!message)return;if(await requestJson(`/api/consultations/${id}/messages`,"POST",{message},id,"Balasan berhasil dikirim."))setReply(v=>({...v,[id]:""}))}
   async function openConsultation(event:FormEvent){event.preventDefault();if(!consultationForm.studentId)return setToast("Pilih mahasiswa terlebih dahulu.");if(await requestJson("/api/consultations","POST",consultationForm,"consultation-new","Percakapan konsultasi berhasil dibuka."))setConsultationForm({studentId:"",subject:"",message:""})}
@@ -51,7 +62,27 @@ export default function Dashboard(props:Props){
   async function saveProfile(event:FormEvent){event.preventDefault();await requestJson("/api/profile","POST",profileForm,"profile","Profil dosen berhasil diperbarui.")}
 
 
-  async function sendReviewedFile(event:FormEvent<HTMLFormElement>,documentId:string){event.preventDefault();const formData=new FormData(event.currentTarget);setBusy(`review-${documentId}`);const response=await fetch(`/api/documents/${documentId}/review`,{method:"POST",body:formData});const result=await response.json().catch(()=>({}));setBusy("");if(!response.ok){setToast(result.error||"File hasil review gagal dikirim.");return}event.currentTarget.reset();setToast(`File hasil review berhasil dikirim ke ${result.studentName||"mahasiswa"}.`);router.refresh()}
+  async function sendReviewedFile(event:FormEvent<HTMLFormElement>,documentId:string) {
+    event.preventDefault();
+    const form=event.currentTarget;
+    const input=form.elements.namedItem("file") as HTMLInputElement;
+    const file=input.files?.[0];
+    if(!file)return setToast("Pilih berkas Word terlebih dahulu.");
+    const validation=validateDocumentFile(file);
+    if(validation)return setToast(validation);
+    const data=new FormData(form);
+
+    setBusy(`review-${documentId}`);
+    try {
+      const result=await submitDocument(`/api/documents/${documentId}/review`,data);
+      form.reset();
+
+      setToast(`File hasil review berhasil dikirim ke ${result.studentName||"mahasiswa"}.`);
+      router.refresh();
+    } catch(error) {
+      setToast(error instanceof Error?error.message:"Koneksi terputus. Periksa jaringan dan coba kembali.");
+    } finally { setBusy(""); }
+  }
   async function setStage(student:DashboardStudent,stageId:number){if(!student.projectId)return setToast("Proyek mahasiswa belum tersedia.");const stage=stages.find(s=>s.id===stageId);if(await requestJson(`/api/projects/${student.projectId}/workflow`,"POST",{action:"SET_STAGE",stageId},`stage-${student.id}`,`Tahap ${student.name} diperbarui menjadi ${stage?.name||"tahap baru"}.`))setStudentRecords(list=>list.map(x=>x.id===student.id?{...x,stage:stage?.name||x.stage,progress:stage?.weight??x.progress}:x))}
   async function decideBooking(id:string,status:"CONFIRMED"|"REJECTED"|"COMPLETED"|"CANCELLED"){await requestJson("/api/bookings","POST",{action:"DECIDE",bookingId:id,status},`booking-${id}`,"Status booking berhasil diperbarui.")}
   function openWorkspace(student:DashboardStudent){setSelectedStudentId(student.id);setActive("Workspace Mahasiswa");setMobile(false);setSearch("")}

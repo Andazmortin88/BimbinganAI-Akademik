@@ -8,6 +8,7 @@ import {
   LogOut, Menu, MessageCirclePlus, MessageSquareText, Send, Settings,
   UploadCloud, UserRound, UserRoundCheck, X,
 } from "lucide-react";
+import { submitDocument, validateDocumentFile } from "@/lib/document-upload";
 import { authClient } from "@/lib/auth/client";
 import type {
   DashboardAppointment, DashboardBookingSlot, DashboardConsultation, DashboardDocument,
@@ -33,12 +34,42 @@ export default function StudentDashboard(props:Props){
   const upcoming=useMemo(()=>[...appointments].filter(a=>new Date(a.startsAt)>new Date(currentTime)).slice(0,5),[appointments,currentTime]);
   useEffect(()=>{if(active!=="Konsultasi")return;const timer=window.setInterval(()=>router.refresh(),15000);return()=>window.clearInterval(timer)},[active,router]);
   async function logout(){await authClient.signOut();router.replace("/");router.refresh()}
-  async function requestJson(url:string,method:string,body:unknown,busyKey:string,success:string){setBusy(busyKey);const response=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const result=await response.json().catch(()=>({}));setBusy("");if(!response.ok){setToast(result.error||"Permintaan belum dapat diproses.");return false}setToast(success);router.refresh();return true}
+  async function requestJson(url:string,method:string,body:unknown,busyKey:string,success:string) {
+    setBusy(busyKey);
+    try {
+      const response=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok){setToast(result?.error||"Permintaan belum dapat diproses.");return false}
+      setToast(success);router.refresh();return true;
+    } catch {
+      setToast("Koneksi terputus. Periksa data terbaru sebelum mencoba kembali.");return false;
+    } finally {setBusy("")}
+  }
   async function openConsultation(event:FormEvent){event.preventDefault();if(await requestJson("/api/consultations","POST",{subject,message},"consultation","Konsultasi berhasil dikirim.")){setSubject("");setMessage("")}}
   async function sendReply(event:FormEvent,id:string){event.preventDefault();const text=reply[id]?.trim();if(!text)return;if(await requestJson(`/api/consultations/${id}/messages`,"POST",{message:text},id,"Balasan berhasil dikirim."))setReply(v=>({...v,[id]:""}))}
   async function requestSurat(event:FormEvent){event.preventDefault();if(!suratForm.templateId)return setToast("Pilih jenis surat terlebih dahulu.");if(await requestJson("/api/surat","POST",{action:"REQUEST",...suratForm},"surat","Pengajuan surat berhasil dikirim."))setSuratForm(v=>({...v,purpose:""}))}
 
-  async function uploadDocument(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=event.currentTarget;const input=form.elements.namedItem("file") as HTMLInputElement;if(!input.files?.[0])return setToast("Pilih berkas Word terlebih dahulu.");const data=new FormData();data.set("file",input.files[0]);data.set("category",category);setBusy("upload");const response=await fetch("/api/documents",{method:"POST",body:data});const result=await response.json().catch(()=>({}));setBusy("");if(!response.ok)return setToast(result.error||"Dokumen gagal diunggah.");form.reset();setCategory("NASKAH LENGKAP");setToast("Dokumen Word berhasil disimpan.");router.refresh()}
+  async function uploadDocument(event:FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form=event.currentTarget;
+    const input=form.elements.namedItem("file") as HTMLInputElement;
+    const file=input.files?.[0];
+    if(!file)return setToast("Pilih berkas Word terlebih dahulu.");
+    const validation=validateDocumentFile(file);
+    if(validation)return setToast(validation);
+    const data=new FormData(form);
+    data.set("category",category);
+    setBusy("upload");
+    try {
+      await submitDocument("/api/documents",data);
+      form.reset();
+      setCategory("NASKAH LENGKAP");
+      setToast("Dokumen Word berhasil disimpan.");
+      router.refresh();
+    } catch(error) {
+      setToast(error instanceof Error?error.message:"Koneksi terputus. Periksa jaringan dan coba kembali.");
+    } finally { setBusy(""); }
+  }
   async function submitTitle(event:FormEvent){event.preventDefault();if(await requestJson("/api/titles","POST",titleForm,"title","Pengajuan judul berhasil dikirim."))setTitleForm({title:"",background:"",researchProblem:"",objective:"",proposedMethod:"",initialReferences:""})}
   async function submitLogbook(event:FormEvent){event.preventDefault();const body={...logForm,actionItems:logForm.actionItems.split("\n").map(x=>x.trim()).filter(Boolean)};if(await requestJson("/api/logbook","POST",body,"logbook","Catatan bimbingan berhasil disimpan."))setLogForm(v=>({...v,topic:"",summary:"",feedbackReceived:"",actionItems:"",nextMeetingTarget:""}))}
   async function book(slot:DashboardBookingSlot){const topic=bookingTopic[slot.id]?.trim();if(!topic)return setToast("Isi topik bimbingan terlebih dahulu.");if(await requestJson("/api/bookings","POST",{action:"BOOK",slotId:slot.id,topic},`book-${slot.id}`,"Slot bimbingan berhasil dipesan."))setBookingTopic(v=>({...v,[slot.id]:""}))}
